@@ -337,3 +337,24 @@ def preview_dataset(
     except Exception as e:
         logger.error(f"Error previewing dataset {dataset_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{dataset_id}/history")
+def get_dataset_history(
+    dataset_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Get dataset history"""
+    try:
+        datasets_service = Datasets(db)
+        result = datasets_service.get_dataset_history(dataset_id)
+
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+
+        return ResponseModel(message=result["message"], data=result["data"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving dataset history {dataset_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
