@@ -1038,3 +1038,164 @@ class Datasets:
                 "error": str(e),
                 "message": "Failed to preview dataset",
             }
+
+    def get_dataset_history(self, dataset_id: UUID) -> Dict[str, Any]:
+        """Get dataset history showing total_rows journey from each parquet file"""
+        try:
+            self._validate_uuid(dataset_id)
+
+            # Check if dataset exists
+            if not self.repo.exists(dataset_id):
+                return {
+                    "success": False,
+                    "error": "Dataset not found",
+                    "message": f"Dataset with ID {dataset_id} does not exist",
+                }
+
+            # Get Minio client to list files
+            minio_client = self._get_minio_client()
+            bucket_name = "datasets"
+            dataset_prefix = f"{dataset_id}/"
+
+            try:
+                # List objects in the dataset folder
+                objects = list(
+                    minio_client.list_objects(bucket_name, prefix=dataset_prefix)
+                )
+
+                # Filter for Parquet files and exclude schema.json
+                parquet_files = [
+                    obj
+                    for obj in objects
+                    if obj.object_name.endswith(".parquet")
+                    and not obj.object_name.endswith("schema.json")
+                ]
+
+                if not parquet_files:
+                    return {
+                        "success": True,
+                        "data": {"history": [], "total_files": 0, "cumulative_rows": 0},
+                        "message": "No parquet files found for this dataset",
+                    }
+
+                # Sort parquet files by name (which contains timestamp)
+                parquet_files.sort(key=lambda x: x.object_name)
+
+                # Get MinIO configuration from environment
+                minio_endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
+                minio_access_key = os.getenv("MINIO_ACCESS_KEY")
+                minio_secret_key = os.getenv("MINIO_SECRET_KEY")
+                minio_secure = os.getenv("MINIO_SECURE", "false") == "true"
+
+                # Use DuckDB with direct S3/MinIO access
+                conn = duckdb.connect()
+
+                try:
+                    # Install and load httpfs extension
+                    conn.execute("INSTALL httpfs")
+                    conn.execute("LOAD httpfs")
+
+                    # Configure S3/MinIO settings
+                    conn.execute("SET s3_region = 'us-east-1'")
+                    conn.execute("SET s3_url_style = 'path'")
+                    conn.execute(f"SET s3_endpoint = '{minio_endpoint}'")
+                    conn.execute(f"SET s3_access_key_id = '{minio_access_key}'")
+                    conn.execute(f"SET s3_secret_access_key = '{minio_secret_key}'")
+                    conn.execute(f"SET s3_use_ssl = {str(minio_secure).lower()}")
+
+                    history = []
+                    cumulative_rows = 0
+                    cumulative_file_size_bytes = 0
+
+                    for parquet_file in parquet_files:
+                        parquet_path = parquet_file.object_name
+
+                        # Extract timestamp from filename (format: {dataset_id}/{timestamp}.parquet)
+                        filename = parquet_path.split("/")[-1]  # Get just the filename
+                        timestamp_str = filename.replace(
+                            ".parquet", ""
+                        )  # Remove .parquet extension
+
+                        # Construct S3 URL for the Parquet file
+                        s3_url = f"s3://{bucket_name}/{parquet_path}"
+
+                        try:
+                            # Get total row count from the file efficiently with DuckDB
+                            total_query = (
+                                f"SELECT COUNT(*) FROM read_parquet('{s3_url}')"
+                            )
+                            file_rows = conn.execute(total_query).fetchone()[0]
+                            cumulative_rows += file_rows
+                            cumulative_file_size_bytes += parquet_file.size
+
+                            # Parse timestamp for better display (format: YYYYMMDD_HHMMSS)
+                            try:
+                                parsed_timestamp = datetime.strptime(
+                                    timestamp_str, "%Y%m%d_%H%M%S"
+                                )
+                                formatted_timestamp = parsed_timestamp.isoformat()
+                            except ValueError:
+                                # If timestamp parsing fails, use the original string
+                                formatted_timestamp = timestamp_str
+
+                            history.append(
+                                {
+                                    "timestamp": formatted_timestamp,
+                                    "filename": filename,
+                                    "rows_added": file_rows,
+                                    "cumulative_rows": cumulative_rows,
+                                    "file_size_bytes": parquet_file.size,
+                                    "cumulative_file_size_bytes": cumulative_file_size_bytes,
+                                }
+                            )
+
+                        except Exception as file_error:
+                            logger.warning(
+                                f"Error reading parquet file {parquet_path}: {str(file_error)}"
+                            )
+                            # Continue with other files even if one fails
+                            continue
+
+                    conn.close()
+
+                    return {
+                        "success": True,
+                        "data": {
+                            "history": history,
+                            "total_files": len(history),
+                            "cumulative_rows": cumulative_rows,
+                            "dataset_id": str(dataset_id),
+                        },
+                        "message": f"Dataset history retrieved successfully with {len(history)} files",
+                    }
+
+                except Exception as duckdb_error:
+                    logger.error(
+                        f"DuckDB error reading parquet files: {str(duckdb_error)}"
+                    )
+                    return {
+                        "success": False,
+                        "error": "DuckDB error",
+                        "message": f"Failed to read parquet files: {str(duckdb_error)}",
+                    }
+
+            except S3Error as s3_error:
+                logger.error(
+                    f"MinIO error listing files for dataset {dataset_id}: {str(s3_error)}"
+                )
+                return {
+                    "success": False,
+                    "error": "Storage error",
+                    "message": f"Failed to list files from storage: {str(s3_error)}",
+                }
+
+        except DatasetValidationError as e:
+            logger.warning(f"Validation error getting dataset history: {str(e)}")
+            return {"success": False, "error": str(e), "message": "Validation failed"}
+        except Exception as e:
+            logger.error(f"Error getting dataset history {dataset_id}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to get dataset history",
+            }

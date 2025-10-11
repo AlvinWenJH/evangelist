@@ -112,6 +112,7 @@ DELETE /v1/datasets/{id}               # Soft delete dataset
 POST   /v1/datasets/{id}/upload-csv        # Upload CSV file to dataset
 GET    /v1/datasets/{id}/schema        # Get dataset schema with total_rows
 GET    /v1/datasets/{id}/preview       # Preview dataset (optimized with DuckDB)
+GET    /v1/datasets/{id}/history       # Get dataset history timeline with row counts
 GET    /v1/datasets/stats              # Get platform statistics
 ```
 
@@ -128,6 +129,7 @@ POST   /v1/auth/login                  # User authentication
 - **Soft Delete**: Preserves data integrity while marking datasets as deleted
 - **Metadata Management**: JSONB-based flexible metadata storage
 - **File Processing**: Automatic CSV to Parquet conversion for optimal storage
+- **Dataset History Timeline**: Track data growth over time with row counts and file sizes per upload
 
 #### Performance Optimizations
 - **Direct Storage Access**: DuckDB reads directly from MinIO without downloading
@@ -140,6 +142,13 @@ POST   /v1/auth/login                  # User authentication
 - **Error Recovery**: Comprehensive error handling with rollback support
 - **Audit Trail**: Timestamp tracking for all operations
 - **Schema Consistency**: Validation ensures data consistency across operations
+
+#### Dataset History & Analytics
+- **Timeline Tracking**: Complete history of dataset uploads with timestamps
+- **Growth Analytics**: Track cumulative rows and file sizes over time
+- **Efficient Processing**: DuckDB directly reads Parquet files from MinIO for row counts
+- **Performance Optimized**: No file downloads required, direct S3-compatible access
+
 
 ### 🚧 Planned Features (From PRD)
 
