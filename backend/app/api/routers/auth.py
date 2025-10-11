@@ -13,7 +13,7 @@ APP_USER = os.getenv("APP_USER")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
 
 
-@router.get("/sign-in")
+@router.post("/sign-in")
 def sign_in(
     username: str = Query(..., description="Username"),
     password: str = Query(..., description="Password"),
