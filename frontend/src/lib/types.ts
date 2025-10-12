@@ -1,0 +1,99 @@
+// API Response Types
+export interface Dataset {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  file_count?: number;
+  total_rows?: number;
+  total_size_bytes?: number;
+  dataset_metadata?: Record<string, any>;
+  is_deleted?: boolean;
+}
+
+export interface DatasetSchema {
+  columns: Array<{
+    name: string;
+    type: string;
+    nullable?: boolean;
+  }>;
+}
+
+export interface DatasetPreview {
+  message: string;
+  data: {
+    rows: Record<string, any>[];
+    columns: string[];
+    preview_count: number;
+    total_rows_in_file: number;
+    file_name: string;
+    limit: number;
+  };
+}
+
+export interface DatasetHistoryItem {
+  timestamp: string;
+  filename: string;
+  rows_added: number;
+  cumulative_rows: number;
+  file_size_bytes: number;
+  cumulative_file_size_bytes: number;
+}
+
+export interface DatasetHistory {
+  dataset_id: string;
+  history: DatasetHistoryItem[];
+  total_files: number;
+  cumulative_rows: number;
+}
+
+export interface DatasetStats {
+  total_datasets: number;
+  total_rows: number;
+  total_size_bytes: number;
+  recent_uploads: number;
+}
+
+// API Request Types
+export interface CreateDatasetRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateDatasetRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface UploadFileRequest {
+  file: File;
+  dataset_id: string;
+}
+
+// Pagination Types
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  keyword?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface PaginatedResponse<T> {
+  message: string;
+  data: {
+    datasets?: T[];  // For datasets endpoint
+    data?: T[];      // For other endpoints that might use different structure
+    page: number;
+    limit: number;
+    total: number;
+    total_page: number;
+  };
+}
+
+// Error Types
+export interface ApiError {
+  detail: string;
+  status_code: number;
+}
