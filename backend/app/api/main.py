@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import datasets, auth
+from .routers import datasets, auth, suites
 from app.modules.minio import MINIO
 from app.modules.postgredb import PostgresDB
 
@@ -10,6 +10,7 @@ app = FastAPI(root_path="/api")
 
 app.include_router(auth.router)
 app.include_router(datasets.router)
+app.include_router(suites.router)
 
 
 @app.get("/")

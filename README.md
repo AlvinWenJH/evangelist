@@ -14,6 +14,15 @@
 - **Soft Delete**: Comprehensive soft delete functionality preserving data integrity
 - **Storage Integration**: MinIO-based file storage with organized bucket structure
 
+#### Evaluation Suite Management System
+- **Core Suite Operations**: Full CRUD operations for evaluation suites with UUID-based identification
+- **Status Management**: Suite status tracking with READY, RUNNING, and FAILED states
+- **Advanced Filtering**: Multi-criteria search and filtering by status, name, description, and metadata
+- **Dataset Integration**: Link suites to datasets for organized evaluation workflows
+- **Statistics & Analytics**: Real-time suite statistics including status-based counts
+- **Flexible Metadata**: JSONB-based metadata storage for custom suite configurations
+- **Soft Delete**: Preserve suite data integrity while marking as deleted
+
 #### Database Architecture
 - **PostgreSQL Integration**: SQLAlchemy-based ORM with async support
 - **Data Models**: Complete dataset models with metadata support
@@ -52,10 +61,15 @@ evangelist/
 │   │   │   ├── main.py        # Main API application
 │   │   │   └── routers/       # Route modules
 │   │   │       ├── auth.py    # Authentication endpoints
-│   │   │       └── datasets.py # Dataset management endpoints
+│   │   │       ├── datasets.py # Dataset management endpoints
+│   │   │       └── suites.py  # Evaluation suite endpoints
 │   │   └── modules/           # Business logic modules
 │   │       ├── datasets/      # Dataset management
 │   │       │   ├── main.py    # Core dataset operations
+│   │       │   ├── models.py  # SQLAlchemy models
+│   │       │   └── repo.py    # Data access layer
+│   │       ├── suites/        # Evaluation suite management
+│   │       │   ├── main.py    # Core suite operations
 │   │       │   ├── models.py  # SQLAlchemy models
 │   │       │   └── repo.py    # Data access layer
 │   │       ├── minio/         # MinIO integration
@@ -116,6 +130,22 @@ GET    /v1/datasets/{id}/history       # Get dataset history timeline with row c
 GET    /v1/datasets/stats              # Get platform statistics
 ```
 
+#### Evaluation Suite Management
+```
+GET    /v1/suites                      # List all suites (with pagination, keyword search, status filter)
+POST   /v1/suites                      # Create new evaluation suite
+GET    /v1/suites/{id}                 # Get suite details by ID
+PUT    /v1/suites/{id}                 # Update suite by ID
+DELETE /v1/suites/{id}                 # Delete suite by ID
+
+GET    /v1/suites/search/advanced      # Advanced search with multiple filters
+GET    /v1/suites/stats/overview       # Get suite statistics (including status counts)
+GET    /v1/suites/name/{name}          # Get suite by name
+GET    /v1/suites/{id}/exists          # Check if suite exists by ID
+GET    /v1/suites/name/{name}/exists   # Check if suite exists by name
+GET    /v1/suites/dataset/{dataset_id} # Get all suites for a specific dataset
+```
+
 #### Authentication
 ```
 POST   /v1/auth/login                  # User authentication
@@ -148,6 +178,15 @@ POST   /v1/auth/login                  # User authentication
 - **Growth Analytics**: Track cumulative rows and file sizes over time
 - **Efficient Processing**: DuckDB directly reads Parquet files from MinIO for row counts
 - **Performance Optimized**: No file downloads required, direct S3-compatible access
+
+#### Evaluation Suite Management
+- **CRUD Operations**: Complete suite lifecycle management with UUID-based identification
+- **Status Management**: Suite status tracking (READY, RUNNING, FAILED) with filtering capabilities
+- **Advanced Search**: Multi-criteria search with name, description, dataset, and metadata filters
+- **Dataset Integration**: Link suites to datasets for organized evaluation workflows
+- **Statistics Dashboard**: Real-time suite statistics including status-based counts
+- **Flexible Metadata**: JSONB-based metadata storage for custom suite configurations
+- **Soft Delete**: Preserve suite data integrity while marking as deleted
 
 
 ### 🚧 Planned Features (From PRD)
@@ -193,7 +232,7 @@ POST   /v1/auth/login                  # User authentication
 - ✅ Dataset management system
 - ✅ File upload and processing
 - ✅ Basic API infrastructure
-- 🔄 Frontend development (React + TypeScript)
+- ✅ Frontend development (React + TypeScript)
 
 ### Phase 2: Evaluation Engine
 - 🔄 Evaluation suite creation and management
