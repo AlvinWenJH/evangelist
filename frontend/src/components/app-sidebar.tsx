@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Database, Upload, BarChart3, Home, Settings, GalleryVerticalEnd } from "lucide-react"
+import { Database, Home, Settings, GalleryVerticalEnd, TestTube } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -33,6 +33,11 @@ const data = {
           title: "Datasets",
           url: "/datasets",
           icon: Database,
+        },
+        {
+          title: "Suites",
+          url: "/suites",
+          icon: TestTube,
         },
       ],
     },

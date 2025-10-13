@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,20 +12,16 @@ import {
   Database,
   FileText,
   HardDrive,
-  Calendar,
-  TrendingUp,
-  Upload,
   Eye,
-  BarChart3,
-  Clock,
   ArrowLeft,
   Server,
-  Download
+  Download,
+  BarChart3,
+  Upload
 } from 'lucide-react';
 import Link from 'next/link';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { apiClient } from '@/lib/api';
-import { Dataset, DatasetSchema, DatasetPreview, DatasetHistory } from '@/lib/types';
+import { Dataset, DatasetPreview, DatasetHistory } from '@/lib/types';
 import { toast } from 'sonner';
 
 import {
@@ -45,26 +41,18 @@ export default function DatasetDetailPage() {
   const datasetId = params.id as string;
 
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [schema, setSchema] = useState<DatasetSchema | null>(null);
   const [preview, setPreview] = useState<DatasetPreview | null>(null);
   const [history, setHistory] = useState<DatasetHistory | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (datasetId) {
-      fetchDatasetDetails();
-    }
-  }, [datasetId]);
-
-  const fetchDatasetDetails = async () => {
+  const fetchDatasetDetails = useCallback(async () => {
     try {
       setLoading(true);
 
       // Fetch all data in parallel
-      const [datasetResponse, schemaResponse, previewResponse, historyResponse] = await Promise.all([
+      const [datasetResponse, , previewResponse, historyResponse] = await Promise.all([
         apiClient.getDataset(datasetId),
         apiClient.getDatasetSchema(datasetId).catch(() => null),
         apiClient.getDatasetPreview(datasetId, 10).catch(() => null),
@@ -72,7 +60,6 @@ export default function DatasetDetailPage() {
       ]);
 
       setDataset(datasetResponse);
-      setSchema(schemaResponse);
       setPreview(previewResponse);
       setHistory(historyResponse);
     } catch (error) {
@@ -81,7 +68,13 @@ export default function DatasetDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [datasetId]);
+
+  useEffect(() => {
+    if (datasetId) {
+      fetchDatasetDetails();
+    }
+  }, [datasetId, fetchDatasetDetails]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -120,13 +113,7 @@ export default function DatasetDetailPage() {
     });
   };
 
-  // Prepare chart data from history
-  const chartData = history?.history?.map((item, index) => ({
-    timestamp: new Date(item.timestamp).toLocaleDateString(),
-    rows: item.cumulative_rows,
-    size: item.cumulative_file_size_bytes,
-    upload: index + 1,
-  })) || [];
+
 
   if (loading) {
     return (
@@ -155,7 +142,7 @@ export default function DatasetDetailPage() {
         <Database className="mx-auto h-12 w-12 text-muted-foreground" />
         <h3 className="mt-2 text-sm font-semibold">Dataset not found</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          The dataset you're looking for doesn't exist or has been deleted.
+          The dataset you&apos;re looking for doesn&apos;t exist or has been deleted.
         </p>
         <div className="mt-6">
           <Button asChild>
@@ -187,202 +174,164 @@ export default function DatasetDetailPage() {
             {dataset.name}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {dataset.description || 'No description provided'}
+            {dataset.description || "No description provided"}
           </p>
         </div>
       </div>
 
       {/* Overview Section */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column - Quick Actions */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="mr-2 h-5 w-5" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                className="w-full" 
-                onClick={() => setIsUploadModalOpen(true)}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Upload More Data
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleExportDataset}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Export Dataset
-              </Button>
-              <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                <DrawerTrigger asChild>
-                  <Button variant="outline" className="w-full">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Show Logs
-                  </Button>
-                </DrawerTrigger>
-                <DrawerContent>
-                  <div className="mx-auto w-full max-w-4xl">
-                    <DrawerHeader>
-                      <DrawerTitle className="flex items-center">
-                        <FileText className="mr-2 h-5 w-5" />
-                        Upload History & Logs
-                      </DrawerTitle>
-                      <DrawerDescription>
-                        Complete history of all uploads for {dataset.name}
-                      </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="p-4 pb-0">
-                      {history?.history && history.history.length > 0 ? (
-                        <div className="space-y-6">
-                          {/* Upload History Table */}
-                          <div>
-                            <div className="max-h-96 overflow-y-auto border rounded-lg">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>File Name</TableHead>
-                                    <TableHead>Upload Time</TableHead>
-                                    <TableHead className="text-right">Rows Added</TableHead>
-                                    <TableHead className="text-right">File Size</TableHead>
-                                    <TableHead className="text-right">Cumulative Rows</TableHead>
-                                    <TableHead className="text-right">Cumulative Size</TableHead>
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="md:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="mr-2 h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              className="w-full"
+              onClick={() => setIsUploadModalOpen(true)}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload More Data
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleExportDataset}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export Dataset
+            </Button>
+            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Show Logs
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <div className="mx-auto w-full max-w-4xl">
+                  <DrawerHeader>
+                    <DrawerTitle className="flex items-center">
+                      <FileText className="mr-2 h-5 w-5" />
+                      Upload History & Logs
+                    </DrawerTitle>
+                    <DrawerDescription>
+                      Complete history of all uploads for {dataset.name}
+                    </DrawerDescription>
+                  </DrawerHeader>
+                  <div className="p-4 pb-0">
+                    {history?.history && history.history.length > 0 ? (
+                      <div className="space-y-6">
+                        {/* Upload History Table */}
+                        <div>
+                          <div className="max-h-96 overflow-y-auto border rounded-lg">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>File Name</TableHead>
+                                  <TableHead>Upload Time</TableHead>
+                                  <TableHead className="text-right">Rows Added</TableHead>
+                                  <TableHead className="text-right">File Size</TableHead>
+                                  <TableHead className="text-right">Cumulative Rows</TableHead>
+                                  <TableHead className="text-right">Cumulative Size</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {history.history.map((item, index) => (
+                                  <TableRow key={index}>
+                                    <TableCell className="font-medium">{item.filename}</TableCell>
+                                    <TableCell>{formatDate(item.timestamp)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant="secondary">+{formatNumber(item.rows_added)}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">{formatBytes(item.file_size_bytes)}</TableCell>
+                                    <TableCell className="text-right">{formatNumber(item.cumulative_rows)}</TableCell>
+                                    <TableCell className="text-right">{formatBytes(item.cumulative_file_size_bytes)}</TableCell>
                                   </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {history.history.map((item, index) => (
-                                    <TableRow key={index}>
-                                      <TableCell className="font-medium">{item.filename}</TableCell>
-                                      <TableCell>{formatDate(item.timestamp)}</TableCell>
-                                      <TableCell className="text-right">
-                                        <Badge variant="secondary">+{formatNumber(item.rows_added)}</Badge>
-                                      </TableCell>
-                                      <TableCell className="text-right">{formatBytes(item.file_size_bytes)}</TableCell>
-                                      <TableCell className="text-right">{formatNumber(item.cumulative_rows)}</TableCell>
-                                      <TableCell className="text-right">{formatBytes(item.cumulative_file_size_bytes)}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                ))}
+                              </TableBody>
+                            </Table>
                           </div>
                         </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                          <h3 className="mt-2 text-sm font-semibold">No upload history</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            No files have been uploaded to this dataset yet.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <DrawerFooter>
-                      <DrawerClose asChild>
-                        <Button variant="outline">Close</Button>
-                      </DrawerClose>
-                    </DrawerFooter>
-                  </div>
-                </DrawerContent>
-              </Drawer>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const minioUrl = process.env.NEXT_PUBLIC_MINIO_BROWSER_URL || 'http://localhost:9001';
-                  const url = `${minioUrl}/datasets/${datasetId}%2F`;
-                  window.open(url, '_blank');
-                }}
-              >
-                <Server className="mr-2 h-4 w-4" />
-                Show in MinIO
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity
-          {history?.history && history.history.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="mr-2 h-5 w-5" />
-                  Recent Uploads
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {history.history.slice(0, 3).map((item, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-medium">{item.filename}</p>
-                        <p className="text-muted-foreground">
-                          {formatDate(item.timestamp)}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <h3 className="mt-2 text-sm font-semibold">No upload history</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          No files have been uploaded to this dataset yet.
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">+{formatNumber(item.rows_added)}</p>
-                        <p className="text-muted-foreground">{formatBytes(item.file_size_bytes)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                  <DrawerFooter>
+                    <DrawerClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                  </DrawerFooter>
                 </div>
-              </CardContent>
-            </Card>
-          )} */}
-        </div>
+              </DrawerContent>
+            </Drawer>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                const minioUrl = process.env.NEXT_PUBLIC_MINIO_BROWSER_URL || 'http://localhost:9001';
+                const url = `${minioUrl}/datasets/${datasetId}%2F`;
+                window.open(url, '_blank');
+              }}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              Show in MinIO
+            </Button>
+          </CardContent>
+        </Card>
 
-        {/* Right Column - Dataset Info & Stats */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Eye className="mr-2 h-5 w-5" />
-                Dataset Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Dataset Metadata */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Created</h4>
-                  <p className="text-sm">{formatDate(dataset.created_at)}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Last Updated</h4>
-                  <p className="text-sm">{formatDate(dataset.updated_at)}</p>
-                </div>
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Eye className="mr-2 h-5 w-5" />
+              Dataset Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Dataset Metadata */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Created</h4>
+                <p className="text-sm">{formatDate(dataset.created_at)}</p>
               </div>
-
-              <Separator />
-
-              {/* Statistics */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                  <div className="text-2xl font-bold">{formatNumber(dataset.total_rows || 0)}</div>
-                  <p className="text-sm text-muted-foreground">Total Rows</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <HardDrive className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                  <div className="text-2xl font-bold">{formatBytes(history?.history?.length ? history.history[history.history.length - 1].cumulative_file_size_bytes : 0)}</div>
-                  <p className="text-sm text-muted-foreground">Storage Size</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                  <div className="text-2xl font-bold">{history?.total_files || 0}</div>
-                  <p className="text-sm text-muted-foreground">Files</p>
-                </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Last Updated</h4>
+                <p className="text-sm">{formatDate(dataset.updated_at)}</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
 
+            <Separator />
 
+            {/* Statistics */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <div className="text-2xl font-bold">{formatNumber(dataset.total_rows || 0)}</div>
+                <p className="text-sm text-muted-foreground">Total Rows</p>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <HardDrive className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                <div className="text-2xl font-bold">{formatBytes(history?.history?.length ? history.history[history.history.length - 1].cumulative_file_size_bytes : 0)}</div>
+                <p className="text-sm text-muted-foreground">Storage Size</p>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                <div className="text-2xl font-bold">{history?.total_files || 0}</div>
+                <p className="text-sm text-muted-foreground">Files</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
 
@@ -398,7 +347,7 @@ export default function DatasetDetailPage() {
             {preview?.data ? (
               `Showing ${preview.data.preview_count} of ${preview.data.total_rows_in_file} rows from ${preview.data.file_name}`
             ) : (
-              'Sample rows from your dataset'
+              "Sample rows from your dataset"
             )}
           </CardDescription>
         </CardHeader>
@@ -451,8 +400,4 @@ export default function DatasetDetailPage() {
 
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={className}>{children}</div>;
 }

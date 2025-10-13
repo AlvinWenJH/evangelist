@@ -109,16 +109,17 @@ export function UploadModal({ isOpen, onClose, dataset, onUploadComplete }: Uplo
       ));
 
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Extract detailed error message from API response
       let errorMessage = 'Upload failed';
       let errorDetails = '';
 
-      if (error?.detail) {
-        errorMessage = error.detail;
+      if (error && typeof error === 'object' && 'detail' in error) {
+        const errorDetail = (error as { detail: string }).detail;
+        errorMessage = errorDetail;
         // For schema validation errors, extract the specific issue
-        if (error.detail.includes('Schema validation failed:')) {
-          const match = error.detail.match(/Schema validation failed: (.+)/);
+        if (errorDetail.includes('Schema validation failed:')) {
+          const match = errorDetail.match(/Schema validation failed: (.+)/);
           if (match) {
             errorDetails = match[1];
             errorMessage = 'Schema validation failed';
@@ -188,9 +189,6 @@ export function UploadModal({ isOpen, onClose, dataset, onUploadComplete }: Uplo
 
   const pendingFiles = uploadFiles.filter(f => f.status === 'pending');
   const canUpload = pendingFiles.length > 0 && !isUploading && dataset;
-  const allFilesProcessed = uploadFiles.length > 0 &&
-    uploadFiles.every(f => f.status === 'success' || f.status === 'error');
-  const hasSuccessfulUploads = uploadFiles.some(f => f.status === 'success');
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';

@@ -5,15 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-import { Database, Upload, BarChart3, Plus, TrendingUp, HardDrive, FileText, TestTube, CheckCircle, Play } from 'lucide-react';
+import { Database, Plus, TestTube, CheckCircle, Play, Clock, XCircle, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
-import { DatasetStats, Dataset } from '@/lib/types';
+import { Dataset, Suite } from '@/lib/types';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DatasetStats | null>(null);
   const [recentDatasets, setRecentDatasets] = useState<Dataset[]>([]);
+  const [recentSuites, setRecentSuites] = useState<Suite[]>([]);
+  const [totalDatasets, setTotalDatasets] = useState<number>(0);
+  const [totalSuites, setTotalSuites] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,8 +23,8 @@ export default function Dashboard() {
       try {
         setLoading(true);
 
-        // Fetch stats and recent datasets in parallel
-        const [statsResponse, datasetsResponse] = await Promise.all([
+        // Fetch stats, recent datasets, and recent suites in parallel
+        const [, datasetsResponse, suitesResponse] = await Promise.all([
           apiClient.getStats().catch(() => ({
             total_datasets: 0,
             total_rows: 0,
@@ -39,10 +41,22 @@ export default function Dashboard() {
               total_page: 0,
             },
           })),
+          apiClient.getSuites({ limit: 5 }).catch(() => ({
+            message: 'Error',
+            data: {
+              data: [],
+              page: 1,
+              limit: 5,
+              total: 0,
+              total_page: 0,
+            },
+          })),
         ]);
 
-        setStats(statsResponse);
         setRecentDatasets(datasetsResponse.data?.datasets || []);
+        setRecentSuites(suitesResponse.data?.data || []);
+        setTotalDatasets(datasetsResponse.data?.total || 0);
+        setTotalSuites(suitesResponse.data?.total || 0);
       } catch (error) {
         toast.error('Failed to load dashboard data');
         console.error('Dashboard error:', error);
@@ -54,16 +68,43 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat().format(num);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'READY':
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Ready
+          </Badge>
+        );
+      case 'RUNNING':
+        return (
+          <Badge variant="default" className="flex items-center gap-1 bg-blue-500">
+            <Activity className="h-3 w-3" />
+            Running
+          </Badge>
+        );
+      case 'FAILED':
+        return (
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <XCircle className="h-3 w-3" />
+            Failed
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Unknown
+          </Badge>
+        );
+    }
   };
 
   if (loading) {
@@ -100,14 +141,6 @@ export default function Dashboard() {
             Overview of your evaluation management system
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/datasets">
-              <Plus className="mr-2 h-4 w-4" />
-              New Dataset
-            </Link>
-          </Button>
-        </div>
       </div>
 
       {/* Stats Cards */}
@@ -118,7 +151,7 @@ export default function Dashboard() {
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats?.total_datasets || 0)}</div>
+            <div className="text-2xl font-bold">{formatNumber(totalDatasets)}</div>
             <p className="text-xs text-muted-foreground">
               Active datasets in system
             </p>
@@ -131,7 +164,7 @@ export default function Dashboard() {
             <TestTube className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{formatNumber(totalSuites)}</div>
             <p className="text-xs text-muted-foreground">
               Test suites available
             </p>
@@ -186,6 +219,12 @@ export default function Dashboard() {
                 <Link href="/datasets">
                   <Database className="mr-2 h-4 w-4" />
                   Browse Datasets
+                </Link>
+              </Button>
+              <Button variant="outline" className="justify-start" asChild>
+                <Link href="/suites">
+                  <TestTube className="mr-2 h-4 w-4" />
+                  Browse Suites
                 </Link>
               </Button>
               {/* <Button variant="outline" className="justify-start" asChild>
@@ -264,21 +303,45 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="text-center py-6">
-                <TestTube className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-2 text-sm font-semibold">No suites</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Get started by creating your first test suite.
-                </p>
-                <div className="mt-6">
-                  <Button asChild>
-                    <Link href="/suites">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Suite
-                    </Link>
-                  </Button>
+              {recentSuites.length > 0 ? (
+                recentSuites.map((suite) => (
+                  <div key={suite.id} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Link
+                        href={`/suites/${suite.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {suite.name}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {suite.description || 'No description'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {getStatusBadge(suite.status)}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(suite.updated_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6">
+                  <TestTube className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-2 text-sm font-semibold">No suites</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Get started by creating your first test suite.
+                  </p>
+                  <div className="mt-6">
+                    <Button asChild>
+                      <Link href="/suites">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Suite
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>

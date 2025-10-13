@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,20 +18,19 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import {
   Plus,
   Search,
   Database,
   Calendar,
-  HardDrive,
   FileText,
   Trash2,
   Eye,
   Upload,
   BarChart3,
-  TrendingUp,
-  Activity
+  TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
@@ -65,17 +64,7 @@ export default function DatasetsPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage] = useState(10);
 
-  // Fetch stats only once on component mount
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  // Fetch datasets when search term or page changes
-  useEffect(() => {
-    fetchDatasets();
-  }, [searchTerm, currentPage]);
-
-  const fetchDatasets = async () => {
+  const fetchDatasets = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.getDatasets({
@@ -100,9 +89,9 @@ export default function DatasetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, currentPage, itemsPerPage]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setStatsLoading(true);
       const response = await fetch('http://localhost:8000/api/v1/datasets/stats/overview');
@@ -121,7 +110,17 @@ export default function DatasetsPage() {
     } finally {
       setStatsLoading(false);
     }
-  };
+  }, [datasets.length]);
+
+  // Fetch stats only once on component mount
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Fetch datasets when search term or page changes
+  useEffect(() => {
+    fetchDatasets();
+  }, [fetchDatasets]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -184,18 +183,13 @@ export default function DatasetsPage() {
     return new Intl.NumberFormat().format(numValue);
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+
 
   // Using server-side filtering and pagination, so no need for client-side filtering
 
   return (
-    <div className="container mx-auto py-2 space-y-4">
+    <TooltipProvider>
+      <div className="container mx-auto py-2 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -378,25 +372,46 @@ export default function DatasetsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleUploadClick(dataset)}
-                        >
-                          <Upload className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/datasets/${dataset.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteDataset(dataset.id, dataset.name)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleUploadClick(dataset)}
+                            >
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Upload data to dataset</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/datasets/${dataset.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View dataset details</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteDataset(dataset.id, dataset.name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete dataset</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -495,6 +510,7 @@ export default function DatasetsPage() {
         onUploadComplete={handleUploadComplete}
         dataset={selectedDatasetForUpload}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
