@@ -7,6 +7,10 @@ import {
   DatasetStats,
   CreateDatasetRequest,
   UpdateDatasetRequest,
+  Suite,
+  SuiteStats,
+  CreateSuiteRequest,
+  UpdateSuiteRequest,
   PaginationParams,
   PaginatedResponse,
   ApiError,
@@ -104,6 +108,50 @@ class ApiClient {
   async getStats(): Promise<DatasetStats> {
     const response: AxiosResponse<DatasetStats> = await this.client.get('/v1/datasets/stats/overview');
     return response.data;
+  }
+
+  // Suite CRUD operations
+  async getSuites(params?: PaginationParams & { keyword?: string; status?: string }): Promise<PaginatedResponse<Suite>> {
+    const response: AxiosResponse<{ message: string, data: { suites: Suite[], page: number, limit: number, total: number, total_page: number } }> = await this.client.get('/v1/suites', {
+      params,
+    });
+    // Transform backend response to match expected PaginatedResponse format
+    const backendData = response.data.data;
+    return {
+      message: response.data.message,
+      data: {
+        data: backendData.suites || [],
+        page: backendData.page || 1,
+        limit: backendData.limit || 10,
+        total: backendData.total || 0,
+        total_page: backendData.total_page || 1,
+      }
+    };
+  }
+
+  async getSuite(id: string): Promise<Suite> {
+    const response: AxiosResponse<{ message: string, data: Suite }> = await this.client.get(`/v1/suites/${id}`);
+    return response.data.data;
+  }
+
+  async createSuite(data: CreateSuiteRequest): Promise<Suite> {
+    const response: AxiosResponse<{ message: string, data: Suite }> = await this.client.post('/v1/suites', data);
+    return response.data.data;
+  }
+
+  async updateSuite(id: string, data: UpdateSuiteRequest): Promise<Suite> {
+    const response: AxiosResponse<{ message: string, data: Suite }> = await this.client.put(`/v1/suites/${id}`, data);
+    return response.data.data;
+  }
+
+  async deleteSuite(id: string): Promise<void> {
+    await this.client.delete(`/v1/suites/${id}`);
+  }
+
+  // Suite statistics
+  async getSuiteStats(): Promise<SuiteStats> {
+    const response: AxiosResponse<{ message: string, data: SuiteStats }> = await this.client.get('/v1/suites/stats/overview');
+    return response.data.data;
   }
 
   // Health check

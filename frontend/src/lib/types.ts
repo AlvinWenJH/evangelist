@@ -8,7 +8,7 @@ export interface Dataset {
   file_count?: number;
   total_rows?: number;
   total_size_bytes?: number;
-  dataset_metadata?: Record<string, any>;
+  dataset_metadata?: Record<string, unknown>;
   is_deleted?: boolean;
 }
 
@@ -23,7 +23,7 @@ export interface DatasetSchema {
 export interface DatasetPreview {
   message: string;
   data: {
-    rows: Record<string, any>[];
+    rows: Record<string, unknown>[];
     columns: string[];
     preview_count: number;
     total_rows_in_file: number;
@@ -90,6 +90,52 @@ export interface PaginatedResponse<T> {
     total: number;
     total_page: number;
   };
+}
+
+// Suite status enum to match backend
+export type SuiteStatus = 'READY' | 'RUNNING' | 'FAILED';
+
+// Suite Types
+export interface Suite {
+  id: string;
+  name: string;
+  description?: string;
+  dataset_id?: string;
+  total_evals?: number;
+  created_at: string;
+  updated_at: string;
+  suite_metadata?: Record<string, unknown>;
+  is_deleted?: boolean;
+  status: SuiteStatus;
+}
+
+export interface SuiteStats {
+  total_suites: number;
+  total_evals: number;
+  average_evals_per_suite: string;
+  status_counts: {
+    ready: number;
+    running: number;
+    failed: number;
+  };
+}
+
+// Suite Request Types
+export interface CreateSuiteRequest {
+  name: string;
+  description?: string;
+  dataset_id?: string;
+  suite_metadata?: Record<string, unknown>;
+  status?: SuiteStatus;
+}
+
+export interface UpdateSuiteRequest {
+  name?: string;
+  description?: string;
+  dataset_id?: string;
+  total_evals?: number;
+  suite_metadata?: Record<string, unknown>;
+  status?: SuiteStatus;
 }
 
 // Error Types
