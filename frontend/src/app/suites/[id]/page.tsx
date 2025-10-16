@@ -17,6 +17,9 @@ import {
   Clock,
   ArrowLeft,
   Play,
+  List,
+  Download,
+  Server,
   CheckCircle,
   XCircle,
   Settings,
@@ -196,51 +199,60 @@ export default function SuiteDetailPage() {
               Quick Actions
             </CardTitle>
           </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full">
-                <Play className="mr-2 h-4 w-4" />
-                Run Evaluation
-              </Button>
-              <Button variant="outline" className="w-full">
-                <Settings className="mr-2 h-4 w-4" />
-                Configure Suite
-              </Button>
-              <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                <DrawerTrigger asChild>
-                  <Button variant="outline" className="w-full">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Show Logs
-                  </Button>
-                </DrawerTrigger>
-                <DrawerContent>
-                  <div className="mx-auto w-full max-w-4xl">
-                    <DrawerHeader>
-                      <DrawerTitle className="flex items-center">
-                        <FileText className="mr-2 h-5 w-5" />
-                        Evaluation History & Logs
-                      </DrawerTitle>
-                      <DrawerDescription>
-                        Complete history of all evaluations for {suite.name}
-                      </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="p-4 pb-0">
-                      <div className="text-center py-8">
-                        <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <h3 className="mt-2 text-sm font-semibold">No evaluation history</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          No evaluations have been run for this suite yet.
-                        </p>
-                      </div>
+          <CardContent className="space-y-3">
+            <Button className="w-full">
+              <Play className="mr-2 h-4 w-4" />
+              Create Evaluation
+            </Button>
+            <Button variant="outline" className="w-full">
+              <List className="mr-2 h-4 w-4" />
+              View Evaluation
+            </Button>
+            <Button variant="outline" className="w-full">
+              <Download className="mr-2 h-4 w-4" />
+              Export Config
+            </Button>
+            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Show Logs
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent>
+                <div className="mx-auto w-full max-w-4xl">
+                  <DrawerHeader>
+                    <DrawerTitle className="flex items-center">
+                      <FileText className="mr-2 h-5 w-5" />
+                      Evaluation History & Logs
+                    </DrawerTitle>
+                    <DrawerDescription>
+                      Complete history of all evaluations for {suite.name}
+                    </DrawerDescription>
+                  </DrawerHeader>
+                  <div className="p-4 pb-0">
+                    <div className="text-center py-8">
+                      <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <h3 className="mt-2 text-sm font-semibold">No evaluation history</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        No evaluations have been run for this suite yet.
+                      </p>
                     </div>
-                    <DrawerFooter>
-                      <DrawerClose asChild>
-                        <Button variant="outline">Close</Button>
-                      </DrawerClose>
-                    </DrawerFooter>
                   </div>
-                </DrawerContent>
-              </Drawer>
-            </CardContent>
+                  <DrawerFooter>
+                    <DrawerClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DrawerClose>
+                  </DrawerFooter>
+                </div>
+              </DrawerContent>
+            </Drawer>
+            <Button variant="outline" className="w-full">
+              <Server className="mr-2 h-4 w-4" />
+              Show in MinIO
+            </Button>
+
+          </CardContent>
         </Card>
 
         <Card className="md:col-span-2">
@@ -250,93 +262,93 @@ export default function SuiteDetailPage() {
               Suite Overview
             </CardTitle>
           </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Suite Metadata */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Created</h4>
-                  <p className="text-sm">{formatDate(suite.created_at)}</p>
+          <CardContent className="space-y-6">
+            {/* Suite Metadata */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Created</h4>
+                <p className="text-sm">{formatDate(suite.created_at)}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Last Updated</h4>
+                <p className="text-sm">{formatDate(suite.updated_at)}</p>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                <div className="flex items-center">
+                  {getStatusBadge(suite.status)}
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Last Updated</h4>
-                  <p className="text-sm">{formatDate(suite.updated_at)}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
-                  <div className="flex items-center">
-                    {getStatusBadge(suite.status)}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Associated Dataset</h4>
-                  <div className="flex items-center">
-                    {dataset ? (
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <Link href={`/datasets/${dataset.id}`}>
-                            <Badge variant="outline" className="flex items-center gap-1 hover:bg-accent cursor-pointer">
-                              <Database className="h-3 w-3" />
-                              {dataset.name}
-                            </Badge>
-                          </Link>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80">
-                          <div className="space-y-1">
-                            <h4 className="text-xl font-bold flex items-center gap-2">
-                              <Database className="h-6 w-6" />
-                              {dataset.name}
-                            </h4>
-                              {dataset.description && (
-                                <p className="text-sm">
-                                  {dataset.description}
-                                </p>
-                              )}
-                              <div className="flex items-center pt-2">
-                                <span className="text-xs text-muted-foreground">
-                                  Updated {formatDate(dataset.updated_at)}
-                                </span>
-                              </div>
-                              {dataset.total_rows && (
-                                <div className="flex items-center pt-2">
-                                  <span className="text-xs text-muted-foreground">
-                                    Rows: {dataset.total_rows.toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Associated Dataset</h4>
+                <div className="flex items-center">
+                  {dataset ? (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Link href={`/datasets/${dataset.id}`}>
+                          <Badge variant="outline" className="flex items-center gap-1 hover:bg-accent cursor-pointer">
+                            <Database className="h-3 w-3" />
+                            {dataset.name}
+                          </Badge>
+                        </Link>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80">
+                        <div className="space-y-1">
+                          <h4 className="text-xl font-bold flex items-center gap-2">
+                            <Database className="h-6 w-6" />
+                            {dataset.name}
+                          </h4>
+                          {dataset.description && (
+                            <p className="text-sm">
+                              {dataset.description}
+                            </p>
+                          )}
+                          <div className="flex items-center pt-2">
+                            <span className="text-xs text-muted-foreground">
+                              Updated {formatDate(dataset.updated_at)}
+                            </span>
                           </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    ) : (
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <XCircle className="h-3 w-3" />
-                        No dataset associated
-                      </Badge>
-                    )}
-                  </div>
+                          {dataset.total_rows && (
+                            <div className="flex items-center pt-2">
+                              <span className="text-xs text-muted-foreground">
+                                Rows: {dataset.total_rows.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  ) : (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <XCircle className="h-3 w-3" />
+                      No dataset associated
+                    </Badge>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <Separator />
+            <Separator />
 
-              {/* Statistics */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <TestTube className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                  <div className="text-2xl font-bold">0</div>
-                  <p className="text-sm text-muted-foreground">Total Evaluations</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                  <div className="text-2xl font-bold">0</div>
-                  <p className="text-sm text-muted-foreground">Successful Runs</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
-                  <Clock className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                  <div className="text-2xl font-bold">—</div>
-                  <p className="text-sm text-muted-foreground">Last Run</p>
-                </div>
+            {/* Statistics */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <TestTube className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <div className="text-2xl font-bold">0</div>
+                <p className="text-sm text-muted-foreground">Total Evaluations</p>
               </div>
-            </CardContent>
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                <div className="text-2xl font-bold">0</div>
+                <p className="text-sm text-muted-foreground">Successful Runs</p>
+              </div>
+              <div className="text-center p-4 bg-muted/50 rounded-lg h-24 flex flex-col justify-center">
+                <Clock className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                <div className="text-2xl font-bold">—</div>
+                <p className="text-sm text-muted-foreground">Last Run</p>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
