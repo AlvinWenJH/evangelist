@@ -46,6 +46,7 @@ class PostgresDB:
     def init_db(self):
         self.cursor.execute(self.query["CREATE_DATASETS_TABLE"])
         self.cursor.execute(self.query["CREATE_SUITES_TABLE"])
+        self.cursor.execute(self.query["CREATE_EVALS_TABLE"])
 
         self.conn.commit()
 
