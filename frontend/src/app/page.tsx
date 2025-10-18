@@ -31,22 +31,22 @@ export default function Dashboard() {
             total_size_bytes: 0,
             recent_uploads: 0,
           })),
-          apiClient.getDatasets({ limit: 5 }).catch(() => ({
+          apiClient.getDatasets({ limit: 3 }).catch(() => ({
             message: 'Error',
             data: {
               datasets: [],
               total: 0,
               page: 1,
-              limit: 5,
+              limit: 3,
               total_page: 0,
             },
           })),
-          apiClient.getSuites({ limit: 5 }).catch(() => ({
+          apiClient.getSuites({ limit: 3 }).catch(() => ({
             message: 'Error',
             data: {
               data: [],
               page: 1,
-              limit: 5,
+              limit: 3,
               total: 0,
               total_page: 0,
             },
