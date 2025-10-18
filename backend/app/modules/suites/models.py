@@ -29,6 +29,8 @@ class SuitesModel(Base):
     )
     suite_metadata = Column(JSON, default=dict)
     is_deleted = Column(Boolean, default=False, nullable=False)
+    current_config_version = Column(Integer, default=0, nullable=False)
+    latest_config_version = Column(Integer, default=0, nullable=False)
 
     def __repr__(self):
         return f"<SuitesModel(id={self.id}, name='{self.name}', dataset_id={self.dataset_id})>"
@@ -46,4 +48,6 @@ class SuitesModel(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "suite_metadata": self.suite_metadata or {},
             "is_deleted": self.is_deleted,
+            "current_config_version": self.current_config_version,
+            "latest_config_version": self.latest_config_version,
         }

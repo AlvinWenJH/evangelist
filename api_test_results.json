@@ -1,0 +1,398 @@
+{
+  "auth": [
+    {
+      "method": "POST",
+      "endpoint": "/v1/auth/sign-in",
+      "description": "Valid login",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "46",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": {
+        "username": "admin",
+        "password": "secretpassword"
+      },
+      "request_files": false,
+      "response_json": {
+        "message": "Successfully signed in",
+        "data": {}
+      }
+    }
+  ],
+  "datasets": [
+    {
+      "method": "GET",
+      "endpoint": "/v1/datasets",
+      "description": "Get all datasets",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "1388",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Datasets retrieved successfully",
+        "data": {
+          "datasets": [
+            {
+              "id": "f1cf5f0b-3931-405b-bf60-fb167b9dbeac",
+              "name": "test_dataset",
+              "description": "Test dataset for API testing",
+              "total_rows": 0,
+              "created_at": "2025-10-18T14:47:56.030918+00:00",
+              "updated_at": "2025-10-18T14:47:56.030918+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "b7c0515d-93bb-4598-b26a-bc4c3df7ab82",
+              "name": "test_dataset_updated",
+              "description": "Updated test dataset",
+              "total_rows": 0,
+              "created_at": "2025-10-18T14:34:16.123133+00:00",
+              "updated_at": "2025-10-18T14:34:16.222801+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "71685f7d-5f03-42a2-8bd9-ed8117a28a5c",
+              "name": "mydataset",
+              "description": "just a test",
+              "total_rows": 0,
+              "created_at": "2025-10-13T15:58:10.498378+00:00",
+              "updated_at": "2025-10-13T15:58:10.498378+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "77a1ae23-0ed2-4a32-a6f9-083908313106",
+              "name": "abcd",
+              "description": "abcdefg",
+              "total_rows": 25,
+              "created_at": "2025-10-12T10:55:42.842819+00:00",
+              "updated_at": "2025-10-12T12:54:07.638036+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "596d019a-758b-424c-9143-db666ba52909",
+              "name": "test",
+              "description": "test datasets",
+              "total_rows": 25,
+              "created_at": "2025-10-11T09:58:09.929637+00:00",
+              "updated_at": "2025-10-11T11:39:44.245029+00:00",
+              "dataset_metadata": {
+                "company": "company_A"
+              },
+              "is_deleted": false
+            }
+          ],
+          "page": 1,
+          "limit": 10,
+          "total": 5,
+          "total_page": 1
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "endpoint": "/v1/datasets/stats/overview",
+      "description": "Get dataset statistics",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "133",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Dataset statistics retrieved successfully",
+        "data": {
+          "total_datasets": 5,
+          "total_rows": "50",
+          "average_rows_per_dataset": "10"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "endpoint": "/v1/datasets/search/advanced",
+      "description": "Advanced search",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "912",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": {
+        "name": "test",
+        "limit": 10
+      },
+      "request_files": false,
+      "response_json": {
+        "message": "Dataset search completed successfully",
+        "data": {
+          "datasets": [
+            {
+              "id": "f1cf5f0b-3931-405b-bf60-fb167b9dbeac",
+              "name": "test_dataset",
+              "description": "Test dataset for API testing",
+              "total_rows": 0,
+              "created_at": "2025-10-18T14:47:56.030918+00:00",
+              "updated_at": "2025-10-18T14:47:56.030918+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "b7c0515d-93bb-4598-b26a-bc4c3df7ab82",
+              "name": "test_dataset_updated",
+              "description": "Updated test dataset",
+              "total_rows": 0,
+              "created_at": "2025-10-18T14:34:16.123133+00:00",
+              "updated_at": "2025-10-18T14:34:16.222801+00:00",
+              "dataset_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "596d019a-758b-424c-9143-db666ba52909",
+              "name": "test",
+              "description": "test datasets",
+              "total_rows": 25,
+              "created_at": "2025-10-11T09:58:09.929637+00:00",
+              "updated_at": "2025-10-11T11:39:44.245029+00:00",
+              "dataset_metadata": {
+                "company": "company_A"
+              },
+              "is_deleted": false
+            }
+          ],
+          "page": 1,
+          "limit": 10,
+          "total": 3,
+          "total_page": 1
+        }
+      }
+    }
+  ],
+  "suites": [
+    {
+      "method": "GET",
+      "endpoint": "/v1/suites",
+      "description": "Get all suites",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "862",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Suites retrieved successfully",
+        "data": {
+          "suites": [
+            {
+              "id": "0437e49c-284d-453a-87d3-4df333aeb257",
+              "name": "test_suite",
+              "description": "Test evaluation suite",
+              "dataset_id": "596d019a-758b-424c-9143-db666ba52909",
+              "total_evals": 0,
+              "status": "ready",
+              "created_at": "2025-10-18T14:47:56.180718+00:00",
+              "updated_at": "2025-10-18T14:47:56.180718+00:00",
+              "suite_metadata": {},
+              "is_deleted": false,
+              "current_config_version": 0,
+              "latest_config_version": 0
+            },
+            {
+              "id": "a701c3cf-d3f6-4c79-9a06-5b15b378a8cd",
+              "name": "Test",
+              "description": "testing suites",
+              "dataset_id": "596d019a-758b-424c-9143-db666ba52909",
+              "total_evals": 0,
+              "status": "ready",
+              "created_at": "2025-10-13T15:03:07.817904+00:00",
+              "updated_at": "2025-10-16T16:30:03.646211+00:00",
+              "suite_metadata": {
+                "company": "A"
+              },
+              "is_deleted": false,
+              "current_config_version": 3,
+              "latest_config_version": 3
+            }
+          ],
+          "page": 1,
+          "limit": 10,
+          "total": 2,
+          "total_page": 1
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "endpoint": "/v1/suites/stats/overview",
+      "description": "Get suite statistics",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "227",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Suite statistics retrieved successfully",
+        "data": {
+          "total_suites": 2,
+          "suites_with_dataset": 2,
+          "suites_without_dataset": 0,
+          "total_ready": 2,
+          "total_running": 0,
+          "total_failed": 0,
+          "total_evals": 0,
+          "average_evals_per_suite": 0.0
+        }
+      }
+    }
+  ],
+  "evals": [
+    {
+      "method": "GET",
+      "endpoint": "/v1/evals",
+      "description": "Get all evaluations",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "1534",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Evaluations retrieved successfully",
+        "data": {
+          "evals": [
+            {
+              "id": "87928c3a-b13c-4a76-95d1-70a0c36d3026",
+              "name": "test_evaluation",
+              "description": "Test evaluation",
+              "suite_id": "a701c3cf-d3f6-4c79-9a06-5b15b378a8cd",
+              "dataset_id": "596d019a-758b-424c-9143-db666ba52909",
+              "total_requests": 0,
+              "successful_requests": 0,
+              "failed_requests": 0,
+              "status": "pending",
+              "created_at": "2025-10-18T15:11:50.260156+00:00",
+              "updated_at": "2025-10-18T15:11:50.260156+00:00",
+              "started_at": null,
+              "completed_at": null,
+              "eval_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "df6fa5ea-3b46-49eb-849e-5d8bbe47f205",
+              "name": "test_evaluation_updated",
+              "description": "Updated test evaluation",
+              "suite_id": "a701c3cf-d3f6-4c79-9a06-5b15b378a8cd",
+              "dataset_id": "596d019a-758b-424c-9143-db666ba52909",
+              "total_requests": 0,
+              "successful_requests": 0,
+              "failed_requests": 0,
+              "status": "running",
+              "created_at": "2025-10-18T14:47:56.310350+00:00",
+              "updated_at": "2025-10-18T14:47:56.379948+00:00",
+              "started_at": null,
+              "completed_at": null,
+              "eval_metadata": {},
+              "is_deleted": false
+            },
+            {
+              "id": "b74e5b7b-d964-440c-86c6-e72e90c816ac",
+              "name": "Eval 16-10-2025 21-02-00",
+              "description": "first eval for testing",
+              "suite_id": "a701c3cf-d3f6-4c79-9a06-5b15b378a8cd",
+              "dataset_id": "596d019a-758b-424c-9143-db666ba52909",
+              "total_requests": 0,
+              "successful_requests": 0,
+              "failed_requests": 0,
+              "status": "pending",
+              "created_at": "2025-10-16T14:13:23.225082+00:00",
+              "updated_at": "2025-10-16T14:13:23.225082+00:00",
+              "started_at": null,
+              "completed_at": null,
+              "eval_metadata": {
+                "company": "a"
+              },
+              "is_deleted": false
+            }
+          ],
+          "page": 1,
+          "limit": 10,
+          "total": 3,
+          "total_page": 1
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "endpoint": "/v1/evals/stats/overview",
+      "description": "Get evaluation statistics",
+      "status_code": 200,
+      "success": true,
+      "response_headers": {
+        "date": "Sat, 18 Oct 2025 15:31:15 GMT",
+        "server": "uvicorn",
+        "content-length": "307",
+        "content-type": "application/json"
+      },
+      "request_data": null,
+      "request_params": null,
+      "request_files": false,
+      "response_json": {
+        "message": "Evaluation statistics retrieved successfully",
+        "data": {
+          "total_evaluations": 3,
+          "status_counts": {
+            "pending": 2,
+            "running": 1,
+            "completed": 0,
+            "failed": 0
+          },
+          "total_requests": 0,
+          "successful_requests": 0,
+          "failed_requests": 0,
+          "success_rate": 0,
+          "average_requests_per_eval": 0.0,
+          "average_completion_time_seconds": null
+        }
+      }
+    }
+  ]
+}

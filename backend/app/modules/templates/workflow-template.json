@@ -1,0 +1,43 @@
+{
+    "workflow": {
+        "name": "SUITE_NAME",
+        "description": "SUITE_DESCRIPTION",
+        "version": 0,
+        "steps": {
+            "preprocessing": {
+                "description": "Preprocess data",
+                "script": "preprocessing-script.py",
+                "input": {
+                    "input_columns": [],
+                    "groundtruth_column": ""
+                }
+            },
+            "invocation": {
+                "description": "request invocation",
+                "script": "invocation-script.py",
+                "input": {
+                    "url": "http://localhost:8000/api/",
+                    "data": {},
+                    "headers": {},
+                    "method": "GET"
+                }
+            },
+            "postprocessing": {
+                "description": "Postprocess data",
+                "script": "postprocessing-script.py",
+                "input": {
+                    "field": "message"
+                }
+            },
+            "evaluation": {
+                "description": "Evaluation",
+                "script": "evaluation-script.py",
+                "input": {
+                    "metrics": [
+                        "similarity"
+                    ]
+                }
+            }
+        }
+    }
+}

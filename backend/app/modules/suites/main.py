@@ -611,3 +611,174 @@ class Suites:
                 "error": str(e),
                 "message": "Failed to retrieve suites",
             }
+
+    def save_config_as_version(self, suite_id: UUID, initial_version: bool = False) -> Dict[str, Any]:
+        """Save current production config as a new draft version"""
+        try:
+            self._validate_uuid(suite_id)
+
+            # Check if suite exists
+            if not self.repo.exists(suite_id):
+                return {
+                    "success": False,
+                    "message": f"Suite with ID {suite_id} does not exist",
+                    "data": None,
+                }
+
+            if initial_version:
+                # For initial version, set latest_config_version to 0
+                self.repo.update(suite_id, latest_config_version=0)
+                new_version = 0
+            else:
+                # Increment latest version and get the new version number
+                new_version = self.repo.increment_latest_config_version(suite_id)
+                if new_version is None:
+                    return {
+                        "success": False,
+                        "message": "Failed to increment version",
+                        "data": None,
+                    }
+
+            return {
+                "success": True,
+                "message": f"Config saved as version {new_version}",
+                "data": {"version": new_version},
+            }
+
+        except SuiteValidationError as e:
+            return {
+                "success": False,
+                "message": str(e),
+                "data": None,
+            }
+        except SQLAlchemyError as e:
+            logger.error(f"Database error saving config version: {e}")
+            return {
+                "success": False,
+                "message": "Database error occurred",
+                "data": None,
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error saving config version: {e}")
+            return {
+                "success": False,
+                "message": "Failed to save config version",
+                "data": None,
+            }
+
+    def rollback_to_config_version(self, suite_id: UUID, version: int) -> Dict[str, Any]:
+        """Rollback to a specific config version"""
+        try:
+            self._validate_uuid(suite_id)
+
+            # Check if suite exists
+            if not self.repo.exists(suite_id):
+                return {
+                    "success": False,
+                    "message": f"Suite with ID {suite_id} does not exist",
+                    "data": None,
+                }
+
+            # Get current version info to validate the rollback version
+            version_info = self.repo.get_config_versions(suite_id)
+            if not version_info:
+                return {
+                    "success": False,
+                    "message": "Failed to get version information",
+                    "data": None,
+                }
+
+            # Validate that the target version exists (should be <= latest_config_version)
+            if version < 0 or version > version_info["latest_config_version"]:
+                return {
+                    "success": False,
+                    "message": f"Invalid version {version}. Must be between 0 and {version_info['latest_config_version']}",
+                    "data": None,
+                }
+
+            # Update current config version
+            success = self.repo.update_current_config_version(suite_id, version)
+            if not success:
+                return {
+                    "success": False,
+                    "message": "Failed to update current config version",
+                    "data": None,
+                }
+
+            return {
+                "success": True,
+                "message": f"Successfully rolled back to version {version}",
+                "data": {
+                    "current_version": version,
+                    "previous_version": version_info["current_config_version"],
+                },
+            }
+
+        except SuiteValidationError as e:
+            return {
+                "success": False,
+                "message": str(e),
+                "data": None,
+            }
+        except SQLAlchemyError as e:
+            logger.error(f"Database error rolling back config version: {e}")
+            return {
+                "success": False,
+                "message": "Database error occurred",
+                "data": None,
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error rolling back config version: {e}")
+            return {
+                "success": False,
+                "message": "Failed to rollback config version",
+                "data": None,
+            }
+
+    def get_config_versions(self, suite_id: UUID) -> Dict[str, Any]:
+        """Get current and latest config versions for a suite"""
+        try:
+            self._validate_uuid(suite_id)
+
+            # Check if suite exists
+            if not self.repo.exists(suite_id):
+                return {
+                    "success": False,
+                    "message": f"Suite with ID {suite_id} does not exist",
+                    "data": None,
+                }
+
+            version_info = self.repo.get_config_versions(suite_id)
+            if not version_info:
+                return {
+                    "success": False,
+                    "message": "Failed to get version information",
+                    "data": None,
+                }
+
+            return {
+                "success": True,
+                "message": "Version information retrieved successfully",
+                "data": version_info,
+            }
+
+        except SuiteValidationError as e:
+            return {
+                "success": False,
+                "message": str(e),
+                "data": None,
+            }
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting config versions: {e}")
+            return {
+                "success": False,
+                "message": "Database error occurred",
+                "data": None,
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error getting config versions: {e}")
+            return {
+                "success": False,
+                "message": "Failed to get config versions",
+                "data": None,
+            }

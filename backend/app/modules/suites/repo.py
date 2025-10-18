@@ -117,6 +117,8 @@ class SuitesRepo:
             "suite_metadata",
             "status",
             "is_deleted",
+            "current_config_version",
+            "latest_config_version",
         ]
         for field, value in kwargs.items():
             if field in allowed_fields and hasattr(suite, field):
@@ -290,3 +292,37 @@ class SuitesRepo:
             .order_by(SuitesModel.created_at.desc())
             .all()
         )
+
+    def increment_latest_config_version(self, suite_id: UUID) -> Optional[int]:
+        """Increment the latest_config_version and sync current_config_version to match"""
+        suite = self.get_by_id(suite_id)
+        if not suite:
+            return None
+
+        new_version = suite.latest_config_version + 1
+        suite.latest_config_version = new_version
+        suite.current_config_version = new_version  # Sync current to latest
+        self.session.commit()
+        self.session.refresh(suite)
+        return new_version
+
+    def update_current_config_version(self, suite_id: UUID, version: int) -> bool:
+        """Update the current_config_version to the specified version"""
+        suite = self.get_by_id(suite_id)
+        if not suite:
+            return False
+
+        suite.current_config_version = version
+        self.session.commit()
+        return True
+
+    def get_config_versions(self, suite_id: UUID) -> Optional[Dict[str, int]]:
+        """Get current and latest config versions for a suite"""
+        suite = self.get_by_id(suite_id)
+        if not suite:
+            return None
+
+        return {
+            "current_config_version": suite.current_config_version,
+            "latest_config_version": suite.latest_config_version,
+        }
