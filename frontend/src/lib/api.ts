@@ -14,6 +14,11 @@ import {
   PaginationParams,
   PaginatedResponse,
   ApiError,
+  SuiteConfig,
+  WorkflowConfig,
+  WorkflowStep,
+  CreateWorkflowConfigRequest,
+  UpdateWorkflowConfigRequest,
 } from './types';
 
 class ApiClient {
@@ -151,6 +156,47 @@ class ApiClient {
   // Suite statistics
   async getSuiteStats(): Promise<SuiteStats> {
     const response: AxiosResponse<{ message: string, data: SuiteStats }> = await this.client.get('/v1/suites/stats/overview');
+    return response.data.data;
+  }
+
+  // Suite configuration
+  async getSuiteConfig(suiteId: string): Promise<SuiteConfig> {
+    const response: AxiosResponse<{ message: string, data: SuiteConfig }> = await this.client.get(`/v1/suites/${suiteId}/config`);
+    return response.data.data;
+  }
+
+  async createSuiteConfig(suiteId: string, data: CreateWorkflowConfigRequest): Promise<SuiteConfig> {
+    const response: AxiosResponse<{ message: string, data: SuiteConfig }> = await this.client.post(`/v1/suites/${suiteId}/config`, data);
+    return response.data.data;
+  }
+
+  async updateSuiteConfig(suiteId: string, data: UpdateWorkflowConfigRequest): Promise<SuiteConfig> {
+    const response: AxiosResponse<{ message: string, data: SuiteConfig }> = await this.client.put(`/v1/suites/${suiteId}/config`, data);
+    return response.data.data;
+  }
+
+  async deleteSuiteConfig(suiteId: string): Promise<void> {
+    await this.client.delete(`/v1/suites/${suiteId}/config`);
+  }
+
+  // Individual step configurations
+  async getPreprocessingStep(suiteId: string): Promise<WorkflowStep> {
+    const response: AxiosResponse<{ message: string, data: WorkflowStep }> = await this.client.get(`/v1/suites/${suiteId}/preprocessing_step`);
+    return response.data.data;
+  }
+
+  async getInvocationStep(suiteId: string): Promise<WorkflowStep> {
+    const response: AxiosResponse<{ message: string, data: WorkflowStep }> = await this.client.get(`/v1/suites/${suiteId}/invocation_step`);
+    return response.data.data;
+  }
+
+  async getPostprocessingStep(suiteId: string): Promise<WorkflowStep> {
+    const response: AxiosResponse<{ message: string, data: WorkflowStep }> = await this.client.get(`/v1/suites/${suiteId}/postprocessing_step`);
+    return response.data.data;
+  }
+
+  async getEvaluationStep(suiteId: string): Promise<WorkflowStep> {
+    const response: AxiosResponse<{ message: string, data: WorkflowStep }> = await this.client.get(`/v1/suites/${suiteId}/evaluation_step`);
     return response.data.data;
   }
 

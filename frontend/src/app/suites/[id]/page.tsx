@@ -29,8 +29,10 @@ import {
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
-import { Suite, Dataset } from '@/lib/types';
+import { Suite, Dataset, SuiteConfig, WorkflowConfig } from '@/lib/types';
 import { toast } from 'sonner';
+import WorkflowVisualization from '@/components/workflow-visualization';
+import WorkflowEmptyState from '@/components/workflow-empty-state';
 
 import {
   Drawer,
@@ -49,8 +51,11 @@ export default function SuiteDetailPage() {
 
   const [suite, setSuite] = useState<Suite | null>(null);
   const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [suiteConfig, setSuiteConfig] = useState<SuiteConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [configLoading, setConfigLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
 
   const fetchSuiteDetails = useCallback(async () => {
     try {
@@ -68,6 +73,19 @@ export default function SuiteDetailPage() {
         } catch (error) {
           console.error('Failed to fetch associated dataset:', error);
         }
+      }
+
+      // Fetch suite configuration
+      try {
+        const configResponse = await apiClient.getSuiteConfig(suiteId);
+        setSuiteConfig(configResponse);
+      } catch (error) {
+        console.error('Failed to fetch suite configuration:', error);
+        // Set empty config if not found
+        setSuiteConfig({
+          suite_id: suiteId,
+          workflow_config: null
+        });
       }
     } catch (error) {
       toast.error('Failed to load suite details');
@@ -92,6 +110,12 @@ export default function SuiteDetailPage() {
       minute: '2-digit',
     });
   };
+
+  const handleCreateWorkflow = () => {
+    window.location.href = `/suites/${suiteId}/edit`;
+  };
+
+
 
   const getStatusBadge = (status: string) => {
     switch (status.toUpperCase()) {
@@ -352,25 +376,51 @@ export default function SuiteDetailPage() {
         </Card>
       </div>
 
-      {/* Workflow Preview Section */}
+      {/* Workflow Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Eye className="mr-2 h-5 w-5" />
-            Preview Workflow
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Eye className="mr-2 h-5 w-5" />
+              Workflow Visualization
+            </div>
+            {suiteConfig?.workflow_config && (
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+              >
+                <Link href={`/suites/${suiteId}/edit`}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Edit Configuration
+                </Link>
+              </Button>
+            )}
           </CardTitle>
           <CardDescription>
-            Configuration and workflow details for this evaluation suite
+            Visual representation of your evaluation pipeline
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <Settings className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-sm font-semibold">Workflow configuration pending</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The workflow configuration will be available once the API is implemented.
-            </p>
-          </div>
+          {suiteConfig?.workflow_config ? (
+            <WorkflowVisualization
+              workflowConfig={suiteConfig.workflow_config}
+              suiteId={suiteId}
+              onEditWorkflow={() => window.location.href = `/suites/${suiteId}/edit`}
+              onCreateWorkflow={handleCreateWorkflow}
+              onEditStep={(stepName: string) => {
+                // Navigate to step editing - you can implement this based on your needs
+                toast.info(`Edit ${stepName} step functionality coming soon`);
+              }}
+              onRunWorkflow={() => {
+                // Run workflow functionality - you can implement this based on your needs
+                toast.info('Run workflow functionality coming soon');
+              }}
+              isReadOnly={false}
+            />
+          ) : (
+            <WorkflowEmptyState onCreateWorkflow={handleCreateWorkflow} />
+          )}
         </CardContent>
       </Card>
     </div>

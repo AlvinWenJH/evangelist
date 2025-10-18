@@ -138,7 +138,45 @@ export interface UpdateSuiteRequest {
   status?: SuiteStatus;
 }
 
-// Error Types
+// Workflow Types
+export interface WorkflowStep {
+  description: string;
+  script: string;
+  input: Record<string, any>;
+}
+
+export interface WorkflowConfig {
+  workflow: {
+    name: string;
+    description: string;
+    version: string;
+    steps: {
+      database: WorkflowStep;
+      preprocessing: WorkflowStep;
+      invocation: WorkflowStep;
+      postprocessing: WorkflowStep;
+      evaluation: WorkflowStep;
+    };
+  };
+  config_files?: Record<string, any>;
+}
+
+export interface SuiteConfig {
+  suite_id: string;
+  workflow_config: WorkflowConfig | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateWorkflowConfigRequest {
+  workflow_config: WorkflowConfig;
+}
+
+export interface UpdateWorkflowConfigRequest {
+  workflow_config: WorkflowConfig;
+}
+
+// API Error Types
 export interface ApiError {
   detail: string;
   status_code: number;
