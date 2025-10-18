@@ -9,6 +9,7 @@ from app.modules.postgredb.main import SessionLocal
 from app.modules.suites.main import Suites
 from app.modules.suites.models import SuiteStatus
 from app.modules.minio.main import MINIO
+from app.modules.evals.main import Evals
 
 import logging
 import json
@@ -43,6 +44,17 @@ class UpdateSuiteRequest(BaseModel):
     total_evals: Optional[int] = None
     suite_metadata: Optional[Dict[str, Any]] = None
     status: Optional[SuiteStatus] = None
+
+
+class UpdateConfigurationRequest(BaseModel):
+    configuration: Dict[str, Any]
+
+
+class PartialUpdateConfigurationRequest(BaseModel):
+    preprocessing: Optional[Dict[str, Any]] = None
+    invocation: Optional[Dict[str, Any]] = None
+    postprocessing: Optional[Dict[str, Any]] = None
+    evaluation: Optional[Dict[str, Any]] = None
 
 
 @router.get("/")
@@ -890,3 +902,186 @@ def rollback_to_version(suite_id: UUID, version: int, db: Session = Depends(get_
     except Exception as e:
         logger.error(f"Error rolling back suite {suite_id} to version {version}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+def _check_suite_has_evaluations(suite_id: UUID, db: Session) -> bool:
+    """Helper function to check if a suite has any evaluations"""
+    try:
+        evals_service = Evals(db)
+        result = evals_service.get_evals_by_suite(suite_id)
+        if result["success"]:
+            evaluations = result["data"]["evaluations"]
+            return len(evaluations) > 0
+        return False
+    except Exception:
+        return False
+
+
+@router.put("/{suite_id}/configuration")
+def update_suite_configuration(
+    suite_id: UUID, 
+    request: UpdateConfigurationRequest, 
+    db: Session = Depends(get_db)
+):
+    """Update entire suite configuration and save as new version
+    
+    If the suite has evaluations, all configuration updates are frozen.
+    """
+    try:
+        # Check if suite exists
+        suites_service = Suites(db)
+        suite_result = suites_service.get_suite(suite_id)
+        
+        if not suite_result["success"]:
+            if "not found" in suite_result["message"].lower():
+                raise HTTPException(status_code=404, detail=suite_result["message"])
+            raise HTTPException(status_code=400, detail=suite_result["message"])
+        
+        # Check if suite has evaluations - if so, freeze all updates
+        if _check_suite_has_evaluations(suite_id, db):
+            raise HTTPException(
+                status_code=403, 
+                detail="Configuration updates are frozen because this suite has evaluations. Only invocation step updates are allowed."
+            )
+        
+        # Update configuration in MinIO
+        minio_client = MINIO()
+        
+        # Convert configuration to JSON and upload
+        config_json = json.dumps(request.configuration, indent=2)
+        success = minio_client.upload_suite_config_file(
+            str(suite_id), "workflow-template.json", config_json, "draft"
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to update configuration in storage"
+            )
+        
+        # Save as new version
+        version_result = suites_service.save_config_as_version(suite_id)
+        if not version_result["success"]:
+            raise HTTPException(status_code=400, detail=version_result["message"])
+        
+        return ResponseModel(
+            message="Configuration updated and saved as new version successfully",
+            data={
+                "suite_id": str(suite_id),
+                "version": version_result["data"]["version"],
+                "configuration": request.configuration
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating configuration for suite {suite_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.patch("/{suite_id}/configuration")
+def partial_update_suite_configuration(
+    suite_id: UUID, 
+    request: PartialUpdateConfigurationRequest, 
+    db: Session = Depends(get_db)
+):
+    """Partially update suite configuration and save as new version
+    
+    If the suite has evaluations, only invocation step updates are allowed.
+    """
+    try:
+        # Check if suite exists
+        suites_service = Suites(db)
+        suite_result = suites_service.get_suite(suite_id)
+        
+        if not suite_result["success"]:
+            if "not found" in suite_result["message"].lower():
+                raise HTTPException(status_code=404, detail=suite_result["message"])
+            raise HTTPException(status_code=400, detail=suite_result["message"])
+        
+        # Check if suite has evaluations
+        has_evaluations = _check_suite_has_evaluations(suite_id, db)
+        
+        # If has evaluations, only allow invocation updates
+        if has_evaluations:
+            if (request.preprocessing is not None or 
+                request.postprocessing is not None or 
+                request.evaluation is not None):
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Only invocation step updates are allowed because this suite has evaluations."
+                )
+        
+        # Get current configuration
+        minio_client = MINIO()
+        try:
+            current_config_str = minio_client.get_suite_config_file(
+                str(suite_id), "workflow-template.json", "draft"
+            )
+            current_config = json.loads(current_config_str)
+        except Exception:
+            raise HTTPException(
+                status_code=404, 
+                detail="Current configuration not found"
+            )
+        
+        # Update only provided sections
+        workflow_steps = current_config.setdefault("workflow", {}).setdefault("steps", {})
+        
+        updated_sections = []
+        if request.preprocessing is not None:
+            workflow_steps["preprocessing"] = request.preprocessing
+            updated_sections.append("preprocessing")
+        
+        if request.invocation is not None:
+            workflow_steps["invocation"] = request.invocation
+            updated_sections.append("invocation")
+        
+        if request.postprocessing is not None:
+            workflow_steps["postprocessing"] = request.postprocessing
+            updated_sections.append("postprocessing")
+        
+        if request.evaluation is not None:
+            workflow_steps["evaluation"] = request.evaluation
+            updated_sections.append("evaluation")
+        
+        if not updated_sections:
+            raise HTTPException(
+                status_code=400, 
+                detail="No configuration sections provided for update"
+            )
+        
+        # Upload updated configuration
+        config_json = json.dumps(current_config, indent=2)
+        success = minio_client.upload_suite_config_file(
+            str(suite_id), "workflow-template.json", config_json, "draft"
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to update configuration in storage"
+            )
+        
+        # Save as new version
+        version_result = suites_service.save_config_as_version(suite_id)
+        if not version_result["success"]:
+            raise HTTPException(status_code=400, detail=version_result["message"])
+        
+        return ResponseModel(
+            message=f"Configuration sections {', '.join(updated_sections)} updated and saved as new version successfully",
+            data={
+                "suite_id": str(suite_id),
+                "version": version_result["data"]["version"],
+                "updated_sections": updated_sections,
+                "has_evaluations": has_evaluations
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error partially updating configuration for suite {suite_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
