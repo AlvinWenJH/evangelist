@@ -58,9 +58,50 @@ export function MainLayout({ children }: MainLayoutProps) {
         items.push(<BreadcrumbSeparator key="sep2" />);
         items.push(
           <BreadcrumbItem key="dataset-detail">
-            <BreadcrumbPage>Dataset</BreadcrumbPage>
+            <BreadcrumbPage>Detail</BreadcrumbPage>
           </BreadcrumbItem>
         );
+      }
+    } else if (segments[0] === 'suites') {
+      items.push(<BreadcrumbSeparator key="sep1" />);
+      
+      if (segments.length === 1) {
+        // Suites page
+        items.push(
+          <BreadcrumbItem key="suites">
+            <BreadcrumbPage>Suites</BreadcrumbPage>
+          </BreadcrumbItem>
+        );
+      } else {
+        // Suite detail or edit page
+        items.push(
+          <BreadcrumbItem key="suites-link">
+            <BreadcrumbLink href="/suites">Suites</BreadcrumbLink>
+          </BreadcrumbItem>
+        );
+        items.push(<BreadcrumbSeparator key="sep2" />);
+        
+        if (segments.length === 2) {
+          // Suite detail page (/suites/[id])
+          items.push(
+            <BreadcrumbItem key="suite-detail">
+              <BreadcrumbPage>Detail</BreadcrumbPage>
+            </BreadcrumbItem>
+          );
+        } else if (segments.length === 3 && segments[2] === 'edit') {
+          // Suite edit page (/suites/[id]/edit)
+          items.push(
+            <BreadcrumbItem key="suite-detail-link">
+              <BreadcrumbLink href={`/suites/${segments[1]}`}>Detail</BreadcrumbLink>
+            </BreadcrumbItem>
+          );
+          items.push(<BreadcrumbSeparator key="sep3" />);
+          items.push(
+            <BreadcrumbItem key="suite-edit">
+              <BreadcrumbPage>Edit Configuration</BreadcrumbPage>
+            </BreadcrumbItem>
+          );
+        }
       }
     }
 

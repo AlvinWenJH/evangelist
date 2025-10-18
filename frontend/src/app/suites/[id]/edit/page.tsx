@@ -93,7 +93,7 @@ export default function EditConfigurationPage() {
       // TODO: Implement actual workflow testing API call
       // For now, simulate a test with a delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       toast.success('Workflow test completed successfully');
     } catch (error: any) {
       console.error('Error testing workflow:', error);
@@ -140,34 +140,40 @@ export default function EditConfigurationPage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
+      <div className="space-y-4">
+        {/* Back Button Row */}
+        <div>
+          <Button variant="outline" size="sm" asChild>
             <Link href={`/suites/${suiteId}`}>
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Detail
             </Link>
           </Button>
+        </div>
+
+        {/* Title and Actions Row */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Edit Configuration</h1>
             <p className="text-muted-foreground">
               Choose the advanced mode to use custom python script
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={handleTestWorkflow} 
-            disabled={isTesting || !currentConfig} 
-            variant="outline" 
-            className="gap-2"
-          >
-            <Play className="w-4 h-4" />
-            {isTesting ? 'Testing...' : 'Test Workflow'}
-          </Button>
-          <Button onClick={handleSaveWorkflow} disabled={isSaving} className="gap-2">
-            <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : 'Save Configuration'}
-          </Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={handleTestWorkflow}
+              disabled={isTesting || !currentConfig}
+              variant="outline"
+              className="gap-2 w-full sm:w-auto"
+            >
+              <Play className="w-4 h-4" />
+              {isTesting ? 'Testing...' : 'Test Workflow'}
+            </Button>
+            <Button onClick={handleSaveWorkflow} disabled={isSaving} className="gap-2 w-full sm:w-auto">
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Configuration'}
+            </Button>
+          </div>
         </div>
       </div>
 
