@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Dataset, DatasetPreview, DatasetHistory } from '@/lib/types';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/date-utils';
 
 import {
   Drawer,
@@ -103,15 +104,7 @@ export default function DatasetDetailPage() {
     return new Intl.NumberFormat().format(num);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+
 
 
 

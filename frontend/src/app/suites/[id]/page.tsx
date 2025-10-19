@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Suite, Dataset, SuiteConfig, WorkflowConfig } from '@/lib/types';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/date-utils';
 import WorkflowVisualization from '@/components/workflow-visualization';
 import WorkflowEmptyState from '@/components/workflow-empty-state';
 
@@ -101,15 +102,7 @@ export default function SuiteDetailPage() {
     }
   }, [suiteId, fetchSuiteDetails]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+
 
   const handleCreateWorkflow = () => {
     window.location.href = `/suites/${suiteId}/edit`;

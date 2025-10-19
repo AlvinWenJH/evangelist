@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Dataset, Suite } from '@/lib/types';
 import { toast } from 'sonner';
+import { formatDateShort } from '@/lib/date-utils';
 
 export default function Dashboard() {
   const [recentDatasets, setRecentDatasets] = useState<Dataset[]>([]);
@@ -265,7 +266,7 @@ export default function Dashboard() {
                         {formatNumber(dataset.total_rows || 0)} rows
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(dataset.updated_at).toLocaleDateString()}
+                        {formatDateShort(dataset.updated_at)}
                       </p>
                     </div>
                   </div>
@@ -320,7 +321,7 @@ export default function Dashboard() {
                     <div className="text-right">
                       {getStatusBadge(suite.status)}
                       <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(suite.updated_at).toLocaleDateString()}
+                        {formatDateShort(suite.updated_at)}
                       </p>
                     </div>
                   </div>

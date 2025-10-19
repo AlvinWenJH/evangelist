@@ -37,6 +37,7 @@ import { apiClient } from '@/lib/api';
 import { Dataset, CreateDatasetRequest } from '@/lib/types';
 import { toast } from 'sonner';
 import { UploadModal } from '@/components/upload-modal';
+import { formatDateShort } from '@/lib/date-utils';
 
 interface DatasetStats {
   total_datasets: number;
@@ -367,7 +368,7 @@ export default function DatasetsPage() {
                     <TableCell>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="mr-1 h-3 w-3" />
-                        {new Date(dataset.updated_at).toLocaleDateString()}
+                        {formatDateShort(dataset.updated_at)}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

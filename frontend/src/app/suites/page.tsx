@@ -40,6 +40,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Suite, CreateSuiteRequest, Dataset, SuiteStats, SuiteStatus } from '@/lib/types';
 import { toast } from 'sonner';
+import { formatDateShort } from '@/lib/date-utils';
 
 export default function SuitesPage() {
   const [suites, setSuites] = useState<Suite[]>([]);
@@ -475,7 +476,7 @@ export default function SuitesPage() {
                       <TableCell className="w-32">
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Calendar className="mr-1 h-3 w-3" />
-                          {new Date(suite.updated_at).toLocaleDateString()}
+                          {formatDateShort(suite.updated_at)}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

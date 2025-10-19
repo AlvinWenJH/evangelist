@@ -36,6 +36,7 @@ import {
 import { toast } from 'sonner';
 import { WorkflowConfig, WorkflowStep, SuiteConfig, Suite } from '@/lib/types';
 import DatasetPreviewComponent from './dataset-preview';
+import { formatDate } from '@/lib/date-utils';
 
 interface WorkflowConfigurationProps {
   suiteId: string;
@@ -461,13 +462,7 @@ export default function WorkflowConfiguration({
               </div>
               {suite?.updated_at && (
                 <p className="text-xs text-muted-foreground">
-                  Last updated {new Date(suite.updated_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  Last updated {formatDate(suite.updated_at)}
                 </p>
               )}
             </div>
