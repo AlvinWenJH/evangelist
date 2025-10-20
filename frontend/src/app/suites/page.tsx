@@ -115,7 +115,7 @@ export default function SuitesPage() {
       console.error('Failed to fetch suite stats:', error);
       // Set default values if API fails
       setStats({
-        total_suites: suites.length,
+        total_suites: 0,
         total_evals: 0,
         average_evals_per_suite: '0',
         status_counts: {
@@ -127,18 +127,18 @@ export default function SuitesPage() {
     } finally {
       setStatsLoading(false);
     }
-  }, [suites.length]);
+  }, []);
 
   // Fetch stats and datasets only once on component mount
   useEffect(() => {
     fetchStats();
     fetchDatasets();
-  }, [fetchStats, fetchDatasets]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch suites when search term, status filter, or page changes
   useEffect(() => {
     fetchSuites();
-  }, [fetchSuites]);
+  }, [searchTerm, statusFilter, currentPage, itemsPerPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);

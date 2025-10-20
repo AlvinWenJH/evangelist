@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,7 +63,10 @@ export default function DatasetsPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage] = useState(10);
 
-  const fetchDatasets = useCallback(async () => {
+  // Refs to prevent duplicate API calls in React Strict Mode
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchDatasets = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const response = await apiClient.getDatasets({
@@ -71,6 +74,10 @@ export default function DatasetsPage() {
         page: currentPage,
         limit: itemsPerPage,
       });
+      
+      // Check if request was aborted
+      if (signal?.aborted) return;
+      
       // The API returns datasets in response.data.datasets
       const datasetsArray = response.data?.datasets || [];
       setDatasets(Array.isArray(datasetsArray) ? datasetsArray : []);
@@ -79,6 +86,9 @@ export default function DatasetsPage() {
       setTotalPages(response.data?.total_page || 1);
       setTotalItems(response.data?.total || 0);
     } catch (error) {
+      // Don't show error if request was aborted
+      if (signal?.aborted) return;
+      
       toast.error('Failed to load datasets');
       console.error('Datasets error:', error);
       // Set empty array on error to prevent filter issues
@@ -86,39 +96,70 @@ export default function DatasetsPage() {
       setTotalPages(1);
       setTotalItems(0);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [searchTerm, currentPage, itemsPerPage]);
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (signal?: AbortSignal) => {
     try {
       setStatsLoading(true);
       const result = await apiClient.getStats();
+      
+      // Check if request was aborted
+      if (signal?.aborted) return;
+      
       if (result) {
         setStats(result);
       }
     } catch (error) {
+      // Don't show error if request was aborted
+      if (signal?.aborted) return;
+      
       console.error('Failed to fetch dataset stats:', error);
       // Set default values if API fails
       setStats({
-        total_datasets: datasets.length,
+        total_datasets: 0,
         total_rows: 0,
         average_rows_per_dataset: 0
       });
     } finally {
-      setStatsLoading(false);
+      if (!signal?.aborted) {
+        setStatsLoading(false);
+      }
     }
-  }, [datasets.length]);
+  }, []);
 
-  // Fetch stats only once on component mount
+  // Fetch stats on component mount
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    const statsAbortController = new AbortController();
+    fetchStats(statsAbortController.signal);
+    
+    return () => {
+      statsAbortController.abort();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch datasets when search term or page changes
+  // Fetch datasets - runs on mount and when dependencies change
   useEffect(() => {
-    fetchDatasets();
-  }, [fetchDatasets]);
+    // Abort previous request if it exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
+    fetchDatasets(signal);
+    
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [searchTerm, currentPage, itemsPerPage]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
