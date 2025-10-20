@@ -62,13 +62,8 @@ export default function EditConfigurationPage() {
 
     setIsSaving(true);
     try {
-      if (suiteConfig?.workflow_config) {
-        // Update existing configuration
-        await apiClient.updateSuiteConfig(suiteId, { workflow_config: currentConfig });
-      } else {
-        // Create new configuration
-        await apiClient.createSuiteConfig(suiteId, { workflow_config: currentConfig });
-      }
+      // Always use PUT with full configuration structure
+      await apiClient.updateSuiteConfig(suiteId, { configuration: currentConfig });
 
       toast.success('Workflow configuration saved successfully');
 
@@ -126,11 +121,9 @@ export default function EditConfigurationPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Suite Not Found</h1>
           <p className="text-muted-foreground mb-4">The requested suite could not be found.</p>
-          <Button asChild>
-            <Link href="/suites">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Suites
-            </Link>
+          <Button onClick={() => router.push('/suites')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Suites
           </Button>
         </div>
       </div>
@@ -143,11 +136,9 @@ export default function EditConfigurationPage() {
       <div className="space-y-4">
         {/* Back Button Row */}
         <div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/suites/${suiteId}`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Detail
-            </Link>
+          <Button variant="outline" size="sm" onClick={() => router.push(`/suites/${suiteId}`)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Detail
           </Button>
         </div>
 

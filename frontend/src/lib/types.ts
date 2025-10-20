@@ -51,8 +51,7 @@ export interface DatasetHistory {
 export interface DatasetStats {
   total_datasets: number;
   total_rows: number;
-  total_size_bytes: number;
-  recent_uploads: number;
+  average_rows_per_dataset: number;
 }
 
 // API Request Types
@@ -145,13 +144,32 @@ export interface WorkflowStep {
   input: Record<string, any>;
 }
 
+// Enhanced Invocation Types
+export interface KeyValuePair {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
+export type RequestBodyType = 'none' | 'json' | 'formData';
+
+export interface InvocationInput {
+  url: string;
+  method: string;
+  params: KeyValuePair[];
+  bodyType: RequestBodyType;
+  body: {
+    json?: KeyValuePair[];
+    formData?: KeyValuePair[];
+  };
+}
+
 export interface WorkflowConfig {
   workflow: {
     name: string;
     description: string;
-    version: string;
+    version: number;
     steps: {
-      database: WorkflowStep;
       preprocessing: WorkflowStep;
       invocation: WorkflowStep;
       postprocessing: WorkflowStep;
@@ -173,7 +191,7 @@ export interface CreateWorkflowConfigRequest {
 }
 
 export interface UpdateWorkflowConfigRequest {
-  workflow_config: WorkflowConfig;
+  configuration: WorkflowConfig;
 }
 
 // API Error Types

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { formatDateShort } from '@/lib/date-utils';
 
 export default function Dashboard() {
+  const router = useRouter();
   const [recentDatasets, setRecentDatasets] = useState<Dataset[]>([]);
   const [recentSuites, setRecentSuites] = useState<Suite[]>([]);
   const [totalDatasets, setTotalDatasets] = useState<number>(0);
@@ -216,17 +218,13 @@ export default function Dashboard() {
                   Upload CSV File
                 </Link>
               </Button> */}
-              <Button variant="outline" className="justify-start" asChild>
-                <Link href="/datasets">
-                  <Database className="mr-2 h-4 w-4" />
-                  Browse Datasets
-                </Link>
+              <Button variant="outline" className="justify-start" onClick={() => router.push('/datasets')}>
+                <Database className="mr-2 h-4 w-4" />
+                Browse Datasets
               </Button>
-              <Button variant="outline" className="justify-start" asChild>
-                <Link href="/suites">
-                  <TestTube className="mr-2 h-4 w-4" />
-                  Browse Suites
-                </Link>
+              <Button variant="outline" className="justify-start" onClick={() => router.push('/suites')}>
+                <TestTube className="mr-2 h-4 w-4" />
+                Browse Suites
               </Button>
               {/* <Button variant="outline" className="justify-start" asChild>
                 <Link href="/analytics">
@@ -279,11 +277,9 @@ export default function Dashboard() {
                     Get started by creating your first dataset.
                   </p>
                   <div className="mt-6">
-                    <Button asChild>
-                      <Link href="/datasets">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Dataset
-                      </Link>
+                    <Button onClick={() => router.push('/datasets')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Dataset
                     </Button>
                   </div>
                 </div>
@@ -334,11 +330,9 @@ export default function Dashboard() {
                     Get started by creating your first test suite.
                   </p>
                   <div className="mt-6">
-                    <Button asChild>
-                      <Link href="/suites">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Suite
-                      </Link>
+                    <Button onClick={() => router.push('/suites')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Suite
                     </Button>
                   </div>
                 </div>
@@ -363,11 +357,9 @@ export default function Dashboard() {
                   Get started by running your first evaluation.
                 </p>
                 <div className="mt-6">
-                  <Button asChild>
-                    <Link href="/evaluations">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Run Evaluation
-                    </Link>
+                  <Button onClick={() => router.push('/evaluations')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Run Evaluation
                   </Button>
                 </div>
               </div>

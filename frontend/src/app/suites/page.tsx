@@ -37,12 +37,14 @@ import {
   Clock
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { Suite, CreateSuiteRequest, Dataset, SuiteStats, SuiteStatus } from '@/lib/types';
 import { toast } from 'sonner';
 import { formatDateShort } from '@/lib/date-utils';
 
 export default function SuitesPage() {
+  const router = useRouter();
   const [suites, setSuites] = useState<Suite[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [stats, setStats] = useState<SuiteStats | null>(null);
@@ -497,10 +499,8 @@ export default function SuitesPage() {
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/suites/${suite.id}`}>
-                                  <Eye className="h-4 w-4" />
-                                </Link>
+                              <Button variant="ghost" size="sm" onClick={() => router.push(`/suites/${suite.id}`)}>
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>

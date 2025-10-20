@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,7 @@ import {
 
 export default function SuiteDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const suiteId = params.id as string;
 
   const [suite, setSuite] = useState<Suite | null>(null);
@@ -104,8 +105,17 @@ export default function SuiteDetailPage() {
 
 
 
-  const handleCreateWorkflow = () => {
-    window.location.href = `/suites/${suiteId}/edit`;
+  const handleCreateWorkflow = async () => {
+    try {
+      // First, hit the configure workflow endpoint
+      await apiClient.configureWorkflow(suiteId);
+      
+      // Then navigate to the edit page
+      window.location.href = `/suites/${suiteId}/edit`;
+    } catch (error) {
+      console.error('Error configuring workflow:', error);
+      toast.error('Failed to configure workflow');
+    }
   };
 
 
@@ -173,8 +183,8 @@ export default function SuiteDetailPage() {
           The suite you&apos;re looking for doesn&apos;t exist or has been deleted.
         </p>
         <div className="mt-6">
-          <Button asChild>
-            <Link href="/suites">Back to Suites</Link>
+          <Button onClick={() => router.push('/suites')}>
+            Back to Suites
           </Button>
         </div>
       </div>
@@ -187,11 +197,9 @@ export default function SuiteDetailPage() {
       <div className="space-y-4">
         {/* Back Button Row */}
         <div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/suites">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Suites
-            </Link>
+          <Button variant="outline" size="sm" onClick={() => router.push('/suites')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Suites
           </Button>
         </div>
 
@@ -381,12 +389,10 @@ export default function SuiteDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                asChild
+                onClick={() => router.push(`/suites/${suiteId}/edit`)}
               >
-                <Link href={`/suites/${suiteId}/edit`}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Edit Configuration
-                </Link>
+                <Settings className="mr-2 h-4 w-4" />
+                Edit Configuration
               </Button>
             )}
           </CardTitle>

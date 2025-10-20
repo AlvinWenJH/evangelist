@@ -34,9 +34,14 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { WorkflowConfig, WorkflowStep, SuiteConfig, Suite } from '@/lib/types';
+import { WorkflowConfig, WorkflowStep, SuiteConfig, Suite, InvocationInput } from '@/lib/types';
 import DatasetPreviewComponent from './dataset-preview';
 import { formatDate } from '@/lib/date-utils';
+import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select';
+import { apiClient } from '@/lib/api';
+import InvocationConfig from './invocation-config';
+import { JsonPathSelector } from '@/components/ui/json-path-selector';
+import { MetricsSelector } from '@/components/ui/metrics-selector';
 
 interface WorkflowConfigurationProps {
   suiteId: string;
@@ -184,19 +189,10 @@ export default function WorkflowConfiguration({
     // Default configuration based on template
     return {
       workflow: {
-        name: "New Workflow",
-        description: "Evaluation workflow",
-        version: "1.0.0",
+        name: suite?.name || "New Workflow",
+        description: suite?.description || "Evaluation workflow",
+        version: 0,
         steps: {
-          database: {
-            description: "Database connection",
-            script: "database-script.py",
-            input: {
-              connection_string: "",
-              query: "",
-              table_name: ""
-            }
-          },
           preprocessing: {
             description: "Preprocess data",
             script: "preprocessing-script.py",
@@ -209,10 +205,14 @@ export default function WorkflowConfiguration({
             description: "Request invocation",
             script: "request-invocation-script.py",
             input: {
-              url: "http://localhost:8000/api/",
-              data: {},
-              headers: {},
-              method: "GET"
+              url: process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:8000/api",
+              method: "POST",
+              params: [],
+              bodyType: "none" as const,
+              body: {
+                json: [],
+                formData: []
+              }
             }
           },
           postprocessing: {
@@ -236,6 +236,8 @@ export default function WorkflowConfiguration({
 
   const [isFlowCollapsed, setIsFlowCollapsed] = useState(false);
   const [openAccordionValue, setOpenAccordionValue] = useState<string>("database");
+  const [datasetColumns, setDatasetColumns] = useState<MultiSelectOption[]>([]);
+  const [loadingColumns, setLoadingColumns] = useState(false);
 
   // Auto-collapse on smaller screens for responsive design
   useEffect(() => {
@@ -392,36 +394,38 @@ export default function WorkflowConfiguration({
     });
   };
 
-  const addMetric = (stepName: string) => {
-    const currentMetrics = config.workflow.steps[stepName as keyof typeof config.workflow.steps].input.metrics || [];
-    updateStepInput(stepName, 'metrics', [...currentMetrics, '']);
-  };
 
-  const updateMetric = (stepName: string, index: number, value: string) => {
-    const currentMetrics = [...config.workflow.steps[stepName as keyof typeof config.workflow.steps].input.metrics];
-    currentMetrics[index] = value;
-    updateStepInput(stepName, 'metrics', currentMetrics);
-  };
 
-  const removeMetric = (stepName: string, index: number) => {
-    const currentMetrics = config.workflow.steps[stepName as keyof typeof config.workflow.steps].input.metrics.filter((_: any, i: number) => i !== index);
-    updateStepInput(stepName, 'metrics', currentMetrics);
-  };
+  // Fetch dataset columns for multiselect
+  const fetchDatasetColumns = useCallback(async () => {
+    if (!suite?.dataset_id) return;
 
-  const addInputColumn = () => {
-    const currentColumns = config.workflow.steps.preprocessing.input.input_columns || [];
-    updateStepInput('preprocessing', 'input_columns', [...currentColumns, '']);
-  };
+    setLoadingColumns(true);
+    try {
+      const preview = await apiClient.getDatasetPreview(suite.dataset_id, 5);
+      if (preview.data?.columns) {
+        const columnOptions: MultiSelectOption[] = preview.data.columns.map((column: string) => ({
+          value: column,
+          label: column
+        }));
+        setDatasetColumns(columnOptions);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dataset columns:', error);
+      toast.error('Failed to load dataset columns');
+    } finally {
+      setLoadingColumns(false);
+    }
+  }, [suite?.dataset_id]);
 
-  const updateInputColumn = (index: number, value: string) => {
-    const currentColumns = [...config.workflow.steps.preprocessing.input.input_columns];
-    currentColumns[index] = value;
-    updateStepInput('preprocessing', 'input_columns', currentColumns);
-  };
+  // Fetch columns when component mounts or dataset changes
+  useEffect(() => {
+    fetchDatasetColumns();
+  }, [fetchDatasetColumns]);
 
-  const removeInputColumn = (index: number) => {
-    const currentColumns = config.workflow.steps.preprocessing.input.input_columns.filter((_: any, i: number) => i !== index);
-    updateStepInput('preprocessing', 'input_columns', currentColumns);
+  // Update input columns handling for multiselect
+  const updateInputColumns = (selectedColumns: string[]) => {
+    updateStepInput('preprocessing', 'input_columns', selectedColumns);
   };
 
   const getStepIcon = (stepName: string) => {
@@ -566,37 +570,42 @@ export default function WorkflowConfiguration({
                     <AccordionContent className="space-y-6 py-4">
                       <div className="space-y-3">
                         <Label>Input Columns</Label>
-                        <div className="space-y-2">
-                          {config.workflow.steps.preprocessing.input.input_columns.map((column: string, index: number) => (
-                            <div key={index} className="flex gap-2">
-                              <Input
-                                value={column}
-                                onChange={(e) => updateInputColumn(index, e.target.value)}
-                                placeholder="Column name"
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeInputColumn(index)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          <Button variant="outline" onClick={addInputColumn} className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Add Column
-                          </Button>
-                        </div>
+                        <MultiSelect
+                          options={datasetColumns}
+                          selected={config.workflow.steps.preprocessing.input.input_columns}
+                          onChange={updateInputColumns}
+                          placeholder={loadingColumns ? "Loading columns..." : "Select input columns"}
+                          disabled={loadingColumns || datasetColumns.length === 0}
+                        />
+                        {datasetColumns.length === 0 && !loadingColumns && (
+                          <p className="text-sm text-muted-foreground">
+                            No dataset columns available. Please ensure a dataset is selected.
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-3">
                         <Label htmlFor="groundtruth-column">Ground Truth Column</Label>
-                        <Input
-                          id="groundtruth-column"
+                        <Select
                           value={config.workflow.steps.preprocessing.input.groundtruth_column}
-                          onChange={(e) => updateStepInput('preprocessing', 'groundtruth_column', e.target.value)}
-                          placeholder="Ground truth column name"
-                        />
+                          onValueChange={(value) => updateStepInput('preprocessing', 'groundtruth_column', value)}
+                          disabled={loadingColumns || datasetColumns.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={loadingColumns ? "Loading columns..." : "Select ground truth column"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {datasetColumns.map((column) => (
+                              <SelectItem key={column.value} value={column.value}>
+                                {column.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {datasetColumns.length === 0 && !loadingColumns && (
+                          <p className="text-sm text-muted-foreground">
+                            No dataset columns available. Please ensure a dataset is selected.
+                          </p>
+                        )}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -609,67 +618,46 @@ export default function WorkflowConfiguration({
                         <span className="font-medium">Invocation</span>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="space-y-6 py-4">
-                      <div className="space-y-3">
-                        <Label htmlFor="invocation-url">API URL</Label>
-                        <Input
-                          id="invocation-url"
-                          value={config.workflow.steps.invocation.input.url}
-                          onChange={(e) => updateStepInput('invocation', 'url', e.target.value)}
-                          placeholder="http://localhost:8000/api/"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <Label htmlFor="invocation-method">HTTP Method</Label>
-                        <Select
-                          value={config.workflow.steps.invocation.input.method}
-                          onValueChange={(value) => updateStepInput('invocation', 'method', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="GET">GET</SelectItem>
-                            <SelectItem value="POST">POST</SelectItem>
-                            <SelectItem value="PUT">PUT</SelectItem>
-                            <SelectItem value="DELETE">DELETE</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-3">
-                        <Label htmlFor="invocation-data">Request Data (JSON)</Label>
-                        <Textarea
-                          id="invocation-data"
-                          value={JSON.stringify(config.workflow.steps.invocation.input.data, null, 2)}
-                          onChange={(e) => {
-                            try {
-                              const data = JSON.parse(e.target.value);
-                              updateStepInput('invocation', 'data', data);
-                            } catch {
-                              // Invalid JSON, keep the text as is for user to fix
+                    <AccordionContent className="py-4">
+                      <InvocationConfig
+                        config={config.workflow.steps.invocation.input as InvocationInput}
+                        availableColumns={config.workflow.steps.preprocessing.input.input_columns}
+                        onChange={(invocationConfig) => {
+                          setConfig(prev => ({
+                            ...prev,
+                            workflow: {
+                              ...prev.workflow,
+                              steps: {
+                                ...prev.workflow.steps,
+                                invocation: {
+                                  ...prev.workflow.steps.invocation,
+                                  input: invocationConfig
+                                }
+                              }
                             }
-                          }}
-                          placeholder="{}"
-                          rows={4}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="invocation-headers">Headers (JSON)</Label>
-                        <Textarea
-                          id="invocation-headers"
-                          value={JSON.stringify(config.workflow.steps.invocation.input.headers, null, 2)}
-                          onChange={(e) => {
-                            try {
-                              const headers = JSON.parse(e.target.value);
-                              updateStepInput('invocation', 'headers', headers);
-                            } catch {
-                              // Invalid JSON, keep the text as is for user to fix
-                            }
-                          }}
-                          placeholder="{}"
-                          rows={4}
-                        />
-                      </div>
+                          }));
+                          if (onConfigChange) {
+                            const newConfig = {
+                              ...config,
+                              workflow: {
+                                ...config.workflow,
+                                steps: {
+                                  ...config.workflow.steps,
+                                  invocation: {
+                                    ...config.workflow.steps.invocation,
+                                    input: invocationConfig
+                                  }
+                                }
+                              }
+                            };
+                            onConfigChange(newConfig);
+                          }
+                        }}
+                        onTest={() => {
+                          toast.info('Testing API request...');
+                          // TODO: Implement actual API testing
+                        }}
+                      />
                     </AccordionContent>
                   </AccordionItem>
 
@@ -682,15 +670,11 @@ export default function WorkflowConfiguration({
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
-                      <div className="space-y-3">
-                        <Label htmlFor="postprocessing-field">Response Field</Label>
-                        <Input
-                          id="postprocessing-field"
-                          value={config.workflow.steps.postprocessing.input.field}
-                          onChange={(e) => updateStepInput('postprocessing', 'field', e.target.value)}
-                          placeholder="message"
-                        />
-                      </div>
+                      <JsonPathSelector
+                        value={config.workflow.steps.postprocessing.input.field}
+                        onChange={(path) => updateStepInput('postprocessing', 'field', path)}
+                        placeholder="Select the field to extract from the API response"
+                      />
                     </AccordionContent>
                   </AccordionItem>
 
@@ -703,31 +687,10 @@ export default function WorkflowConfiguration({
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
-                      <div className="space-y-3">
-                        <Label>Evaluation Metrics</Label>
-                        <div className="space-y-2">
-                          {config.workflow.steps.evaluation.input.metrics.map((metric: string, index: number) => (
-                            <div key={index} className="flex gap-2">
-                              <Input
-                                value={metric}
-                                onChange={(e) => updateMetric('evaluation', index, e.target.value)}
-                                placeholder="Metric name (e.g., similarity, accuracy)"
-                              />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeMetric('evaluation', index)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          <Button variant="outline" onClick={() => addMetric('evaluation')} className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Add Metric
-                          </Button>
-                        </div>
-                      </div>
+                      <MetricsSelector
+                        selectedMetrics={config.workflow.steps.evaluation.input.metrics}
+                        onMetricsChange={(metrics) => updateStepInput('evaluation', 'metrics', metrics)}
+                      />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>

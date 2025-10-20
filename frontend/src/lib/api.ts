@@ -111,8 +111,8 @@ class ApiClient {
 
   // Statistics
   async getStats(): Promise<DatasetStats> {
-    const response: AxiosResponse<DatasetStats> = await this.client.get('/v1/datasets/stats/overview');
-    return response.data;
+    const response: AxiosResponse<{ message: string, data: DatasetStats }> = await this.client.get('/v1/datasets/stats/overview');
+    return response.data.data;
   }
 
   // Suite CRUD operations
@@ -171,12 +171,17 @@ class ApiClient {
   }
 
   async updateSuiteConfig(suiteId: string, data: UpdateWorkflowConfigRequest): Promise<SuiteConfig> {
-    const response: AxiosResponse<{ message: string, data: SuiteConfig }> = await this.client.put(`/v1/suites/${suiteId}/config`, data);
+    const response: AxiosResponse<{ message: string, data: SuiteConfig }> = await this.client.put(`/v1/suites/${suiteId}/configuration`, data);
     return response.data.data;
   }
 
   async deleteSuiteConfig(suiteId: string): Promise<void> {
-    await this.client.delete(`/v1/suites/${suiteId}/config`);
+    await this.client.delete(`/v1/suites/${suiteId}/configuration`);
+  }
+
+  // Configure workflow
+  async configureWorkflow(suiteId: string): Promise<void> {
+    await this.client.post(`/v1/suites/configure_workflow/${suiteId}`);
   }
 
   // Individual step configurations
