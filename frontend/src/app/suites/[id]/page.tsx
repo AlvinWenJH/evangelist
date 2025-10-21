@@ -29,7 +29,7 @@ import {
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
-import { Suite, Dataset, SuiteConfig, WorkflowConfig } from '@/lib/types';
+import { Suite, Dataset, SuiteConfig } from '@/lib/types';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/date-utils';
 import WorkflowVisualization from '@/components/workflow-visualization';
@@ -55,7 +55,6 @@ export default function SuiteDetailPage() {
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [suiteConfig, setSuiteConfig] = useState<SuiteConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [configLoading, setConfigLoading] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
 
@@ -105,22 +104,22 @@ export default function SuiteDetailPage() {
 
 
 
-  const handleCreateWorkflow = async () => {
+  const handleCreateWorkflow = useCallback(async () => {
     try {
       // First, hit the configure workflow endpoint
       await apiClient.configureWorkflow(suiteId);
-      
+
       // Then navigate to the edit page
       window.location.href = `/suites/${suiteId}/edit`;
     } catch (error) {
       console.error('Error configuring workflow:', error);
       toast.error('Failed to configure workflow');
     }
-  };
+  }, [suiteId]);
 
 
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = useCallback((status: string) => {
     switch (status.toUpperCase()) {
       case 'READY':
         return (
@@ -151,7 +150,7 @@ export default function SuiteDetailPage() {
           </Badge>
         );
     }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -404,16 +403,10 @@ export default function SuiteDetailPage() {
           {suiteConfig?.workflow_config ? (
             <WorkflowVisualization
               workflowConfig={suiteConfig.workflow_config}
-              suiteId={suiteId}
-              onEditWorkflow={() => window.location.href = `/suites/${suiteId}/edit`}
               onCreateWorkflow={handleCreateWorkflow}
               onEditStep={(stepName: string) => {
                 // Navigate to step editing - you can implement this based on your needs
                 toast.info(`Edit ${stepName} step functionality coming soon`);
-              }}
-              onRunWorkflow={() => {
-                // Run workflow functionality - you can implement this based on your needs
-                toast.info('Run workflow functionality coming soon');
               }}
               isReadOnly={false}
             />

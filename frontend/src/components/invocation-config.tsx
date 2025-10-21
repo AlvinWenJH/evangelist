@@ -5,16 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { MentionInput } from '@/components/ui/mention-input';
-import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Plus, Trash2, Send } from 'lucide-react';
-import { InvocationInput, KeyValuePair, RequestBodyType } from '@/lib/types';
+import { InvocationInput, KeyValuePair, RequestBodyType, LegacyInvocationInput } from '@/lib/types';
 
 interface InvocationConfigProps {
   config: InvocationInput;
@@ -29,12 +25,120 @@ const defaultKeyValuePair = (): KeyValuePair => ({
   enabled: true,
 });
 
-export default function InvocationConfig({ config, onChange, onTest, availableColumns = [] }: InvocationConfigProps) {
-  const [activeSection, setActiveSection] = useState<'params' | 'body'>('params');
+// Helper function to convert new input_type format to legacy format for UI compatibility
+const convertToLegacyFormat = (config: InvocationInput): LegacyInvocationInput => {
+  const params = config.input_type.params?.data || [];
+  
+  let bodyType: RequestBodyType = 'none';
+  let body = { json: [] as KeyValuePair[], formData: [] as KeyValuePair[] };
+  
+  // Check for JSON body type
+  if (config.input_type.body?.json) {
+    bodyType = 'json';
+    body.json = config.input_type.body.json;
+  } 
+  // Check for form data body type
+  else if (config.input_type.body?.form) {
+    bodyType = 'formData';
+    body.formData = config.input_type.body.form;
+  }
+  // If body object exists but is empty, default to 'none'
+  else if (config.input_type.body) {
+    bodyType = 'none';
+  }
+  
+  return {
+    url: config.url,
+    method: config.method,
+    params,
+    bodyType,
+    body
+  };
+};
 
-  const updateConfig = useCallback((updates: Partial<InvocationInput>) => {
-    onChange({ ...config, ...updates });
-  }, [config, onChange]);
+// Helper function to convert legacy format back to new input_type format
+const convertFromLegacyFormat = (legacyConfig: LegacyInvocationInput, originalConfig: InvocationInput): InvocationInput => {
+  const input_type: InvocationInput['input_type'] = {};
+  
+  // Handle params - always include if they exist
+  if (legacyConfig.params && legacyConfig.params.length > 0) {
+    input_type.params = { data: legacyConfig.params };
+  }
+  
+  // Handle body based on bodyType
+  if (legacyConfig.bodyType === 'json') {
+    input_type.body = { json: legacyConfig.body.json || [] };
+  } else if (legacyConfig.bodyType === 'formData') {
+    input_type.body = { form: legacyConfig.body.formData || [] };
+  } else if (legacyConfig.bodyType === 'none') {
+    // Don't include body in input_type if none is selected
+    // This ensures the structure is clean
+  }
+  
+  return {
+    url: legacyConfig.url,
+    method: legacyConfig.method,
+    headers: originalConfig.headers,
+    input_type
+  };
+};
+
+export default function InvocationConfig({ config, onChange, onTest, availableColumns = [] }: InvocationConfigProps) {
+  // Determine initial active section based on input_type structure
+  const getInitialActiveSection = (): 'params' | 'body' => {
+    // Check if body structure exists (json or form) - don't require non-empty arrays
+    if (config.input_type.body?.json !== undefined) {
+      return 'body';
+    }
+    if (config.input_type.body?.form !== undefined) {
+      return 'body';
+    }
+    // Check if params structure exists
+    if (config.input_type.params?.data !== undefined) {
+      return 'params';
+    }
+    // Default to params if nothing is configured
+    return 'params';
+  };
+
+  const [activeSection, setActiveSection] = useState<'params' | 'body'>(getInitialActiveSection());
+
+  // Update active section when config changes, but only if user hasn't manually selected a section
+  const [userHasSelectedSection, setUserHasSelectedSection] = useState(false);
+  
+  useEffect(() => {
+    // Only auto-update if user hasn't manually selected a section
+    if (!userHasSelectedSection) {
+      setActiveSection(getInitialActiveSection());
+    }
+  }, [config, userHasSelectedSection]);
+
+  // Convert to legacy format for internal use
+  const legacyConfig = convertToLegacyFormat(config);
+
+  const updateConfig = useCallback((updates: Partial<LegacyInvocationInput>) => {
+    const updatedLegacyConfig = { ...legacyConfig, ...updates };
+    const newConfig = convertFromLegacyFormat(updatedLegacyConfig, config);
+    onChange(newConfig);
+  }, [legacyConfig, config, onChange]);
+
+  const handleBodyTypeChange = useCallback((newBodyType: RequestBodyType) => {
+    const updatedLegacyConfig = { 
+      ...legacyConfig, 
+      bodyType: newBodyType,
+      body: {
+        json: newBodyType === 'json' ? (legacyConfig.body?.json || []) : [],
+        formData: newBodyType === 'formData' ? (legacyConfig.body?.formData || []) : []
+      }
+    };
+    const newConfig = convertFromLegacyFormat(updatedLegacyConfig, config);
+    
+    // Ensure we stay on the body section when changing body type
+    setActiveSection('body');
+    setUserHasSelectedSection(true);
+    
+    onChange(newConfig);
+  }, [legacyConfig, config, onChange]);
 
   const updateKeyValueList = useCallback((
     listType: 'params' | 'formData' | 'json',
@@ -43,83 +147,83 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
     value: string | boolean
   ) => {
     const currentList = listType === 'formData'
-      ? config.body?.formData || []
+      ? legacyConfig.body?.formData || []
       : listType === 'json'
-      ? config.body?.json || []
-      : config[listType] || [];
+        ? legacyConfig.body?.json || []
+        : legacyConfig[listType] || [];
 
     const newList = [...currentList];
     newList[index] = { ...newList[index], [field]: value };
 
     if (listType === 'formData') {
       updateConfig({
-        body: { ...config.body || {}, formData: newList }
+        body: { ...legacyConfig.body || {}, formData: newList }
       });
     } else if (listType === 'json') {
       updateConfig({
-        body: { ...config.body || {}, json: newList }
+        body: { ...legacyConfig.body || {}, json: newList }
       });
     } else {
       updateConfig({ [listType]: newList });
     }
-  }, [config, updateConfig]);
+  }, [legacyConfig, updateConfig]);
 
   const addKeyValuePair = useCallback((listType: 'params' | 'formData' | 'json') => {
     const currentList = listType === 'formData'
-      ? config.body?.formData || []
+      ? legacyConfig.body?.formData || []
       : listType === 'json'
-      ? config.body?.json || []
-      : config[listType] || [];
+        ? legacyConfig.body?.json || []
+        : legacyConfig[listType] || [];
 
     const newList = [...currentList, defaultKeyValuePair()];
 
     if (listType === 'formData') {
       updateConfig({
-        body: { ...config.body || {}, formData: newList }
+        body: { ...legacyConfig.body || {}, formData: newList }
       });
     } else if (listType === 'json') {
       updateConfig({
-        body: { ...config.body || {}, json: newList }
+        body: { ...legacyConfig.body || {}, json: newList }
       });
     } else {
       updateConfig({ [listType]: newList });
     }
-  }, [config, updateConfig]);
+  }, [legacyConfig, updateConfig]);
 
   const removeKeyValuePair = useCallback((
     listType: 'params' | 'formData' | 'json',
     index: number
   ) => {
     const currentList = listType === 'formData'
-      ? config.body?.formData || []
+      ? legacyConfig.body?.formData || []
       : listType === 'json'
-      ? config.body?.json || []
-      : config[listType] || [];
+        ? legacyConfig.body?.json || []
+        : legacyConfig[listType] || [];
 
     const newList = currentList.filter((_, i) => i !== index);
 
     if (listType === 'formData') {
       updateConfig({
-        body: { ...config.body || {}, formData: newList }
+        body: { ...legacyConfig.body || {}, formData: newList }
       });
     } else if (listType === 'json') {
       updateConfig({
-        body: { ...config.body || {}, json: newList }
+        body: { ...legacyConfig.body || {}, json: newList }
       });
     } else {
       updateConfig({ [listType]: newList });
     }
-  }, [config, updateConfig]);
+  }, [legacyConfig, updateConfig]);
 
   const renderKeyValueTable = (
     listType: 'params' | 'formData' | 'json',
     title: string
   ) => {
     const list = listType === 'formData'
-      ? config.body?.formData || []
+      ? legacyConfig.body?.formData || []
       : listType === 'json'
-      ? config.body?.json || []
-      : config[listType] || [];
+        ? legacyConfig.body?.json || []
+        : legacyConfig[listType] || [];
 
     return (
       <div className="space-y-4">
@@ -202,7 +306,7 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
               className="mt-2"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add {getSingularTitle(title)}
+              Add {getSingularTitle()}
             </Button>
           </div>
         )}
@@ -215,7 +319,7 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
     return list.filter(item => item.enabled && item.key.trim()).length;
   };
 
-  const getSingularTitle = (title: string) => {
+  const getSingularTitle = () => {
     return 'Item';
   };
 
@@ -240,7 +344,7 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
         <div className="flex gap-2">
           <div className="w-24">
             <Select
-              value={config.method}
+              value={legacyConfig.method}
               onValueChange={(value) => updateConfig({ method: value })}
             >
               <SelectTrigger>
@@ -257,7 +361,7 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
           </div>
           <div className="flex-1">
             <Input
-              value={config.url}
+              value={legacyConfig.url}
               onChange={(e) => updateConfig({ url: e.target.value })}
               placeholder="Enter request URL"
             />
@@ -270,14 +374,17 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
             <Label>Configuration Section</Label>
             <Select
               value={activeSection}
-              onValueChange={(value: string) => setActiveSection(value as 'params' | 'body')}
+              onValueChange={(value: string) => {
+                setActiveSection(value as 'params' | 'body');
+                setUserHasSelectedSection(true);
+              }}
             >
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="params">
-                  Params {getEnabledCount(config.params) > 0 && `(${getEnabledCount(config.params)})`}
+                  Params {getEnabledCount(legacyConfig.params) > 0 && `(${getEnabledCount(legacyConfig.params)})`}
                 </SelectItem>
                 <SelectItem value="body">Body</SelectItem>
               </SelectContent>
@@ -296,8 +403,8 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
               <div className="space-y-3">
                 <Label>Body Type</Label>
                 <Select
-                  value={config.bodyType}
-                  onValueChange={(value: RequestBodyType) => updateConfig({ bodyType: value })}
+                  value={legacyConfig.bodyType}
+                  onValueChange={handleBodyTypeChange}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue />
@@ -310,11 +417,11 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
                 </Select>
               </div>
 
-              {config.bodyType === 'json' && (
+              {legacyConfig.bodyType === 'json' && (
                 renderKeyValueTable('json', 'JSON Body')
               )}
 
-              {config.bodyType === 'formData' && (
+              {legacyConfig.bodyType === 'formData' && (
                 renderKeyValueTable('formData', 'Form Data')
               )}
             </div>

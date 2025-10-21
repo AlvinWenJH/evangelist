@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -55,6 +55,10 @@ class PartialUpdateConfigurationRequest(BaseModel):
     invocation: Optional[Dict[str, Any]] = None
     postprocessing: Optional[Dict[str, Any]] = None
     evaluation: Optional[Dict[str, Any]] = None
+
+
+class TestSuiteConfigurationRequest(BaseModel):
+    step: Literal["preprocessing", "invocation", "postprocessing", "evaluation"]
 
 
 @router.get("/")
@@ -436,6 +440,22 @@ def get_suite_config(suite_id: UUID, db: Session = Depends(get_db)):
                     str(suite_id), "production"
                 )
 
+                # Add script content for each step
+                workflow_steps = config_data.get("workflow", {}).get("steps", {})
+                for step_name, step_config in workflow_steps.items():
+                    script_name = step_config.get("script")
+                    if script_name:
+                        try:
+                            script_content = minio_client.get_suite_config_file(
+                                str(suite_id), script_name, "production"
+                            )
+                            step_config["script_content"] = script_content
+                        except Exception:
+                            # Script file doesn't exist yet
+                            step_config["script_content"] = None
+                    else:
+                        step_config["script_content"] = None
+
                 return ResponseModel(
                     message="Suite configuration retrieved successfully",
                     data={
@@ -483,63 +503,18 @@ def get_preprocessing_step(suite_id: UUID, db: Session = Depends(get_db)):
             input: dict
     """
     try:
-        # First verify that the suite exists
         suites_service = Suites(db)
-        suite_result = suites_service.get_suite(suite_id)
+        result = suites_service.get_preprocessing_step(suite_id)
 
-        if not suite_result["success"]:
-            if "not found" in suite_result["message"].lower():
-                raise HTTPException(status_code=404, detail=suite_result["message"])
-            raise HTTPException(status_code=400, detail=suite_result["message"])
+        if not result["success"]:
+            if "not found" in result["message"].lower():
+                raise HTTPException(status_code=404, detail=result["message"])
+            raise HTTPException(status_code=400, detail=result["message"])
 
-        # Get configuration from MinIO
-        try:
-            minio_client = MINIO()
-
-            # Get workflow configuration
-            workflow_config = minio_client.get_suite_config_file(
-                str(suite_id), "workflow-template.json", "production"
-            )
-            config_data = json.loads(workflow_config)
-
-            # Extract preprocessing step
-            preprocessing_step = (
-                config_data.get("workflow", {})
-                .get("steps", {})
-                .get("preprocessing", {})
-            )
-
-            # Try to get the script content if script file exists
-            script_content = None
-            script_name = preprocessing_step.get("script")
-            if script_name:
-                try:
-                    script_content = minio_client.get_suite_config_file(
-                        str(suite_id), script_name, "production"
-                    )
-                except Exception:
-                    # Script file doesn't exist yet
-                    pass
-
-            return ResponseModel(
-                message="Preprocessing step retrieved successfully",
-                data={
-                    "suite_id": str(suite_id),
-                    "description": preprocessing_step.get("description", ""),
-                    "script": script_name,
-                    "script_content": script_content,
-                    "input": preprocessing_step.get("input", {}),
-                },
-            )
-
-        except Exception as config_error:
-            logger.error(
-                f"Error retrieving preprocessing step for suite {suite_id}: {config_error}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail="Preprocessing configuration not found",
-            )
+        return ResponseModel(
+            message=result["message"],
+            data=result["data"],
+        )
 
     except HTTPException:
         raise
@@ -559,61 +534,18 @@ def get_invocation_step(suite_id: UUID, db: Session = Depends(get_db)):
             input: dict
     """
     try:
-        # First verify that the suite exists
         suites_service = Suites(db)
-        suite_result = suites_service.get_suite(suite_id)
+        result = suites_service.get_invocation_step(suite_id)
 
-        if not suite_result["success"]:
-            if "not found" in suite_result["message"].lower():
-                raise HTTPException(status_code=404, detail=suite_result["message"])
-            raise HTTPException(status_code=400, detail=suite_result["message"])
+        if not result["success"]:
+            if "not found" in result["message"].lower():
+                raise HTTPException(status_code=404, detail=result["message"])
+            raise HTTPException(status_code=400, detail=result["message"])
 
-        # Get configuration from MinIO
-        try:
-            minio_client = MINIO()
-
-            # Get workflow configuration
-            workflow_config = minio_client.get_suite_config_file(
-                str(suite_id), "workflow-template.json", "production"
-            )
-            config_data = json.loads(workflow_config)
-
-            # Extract invocation step
-            invocation_step = (
-                config_data.get("workflow", {}).get("steps", {}).get("invocation", {})
-            )
-
-            # Try to get the script content if script file exists
-            script_content = None
-            script_name = invocation_step.get("script")
-            if script_name:
-                try:
-                    script_content = minio_client.get_suite_config_file(
-                        str(suite_id), script_name, "production"
-                    )
-                except Exception:
-                    # Script file doesn't exist yet
-                    pass
-
-            return ResponseModel(
-                message="Invocation step retrieved successfully",
-                data={
-                    "suite_id": str(suite_id),
-                    "description": invocation_step.get("description", ""),
-                    "script": script_name,
-                    "script_content": script_content,
-                    "input": invocation_step.get("input", {}),
-                },
-            )
-
-        except Exception as config_error:
-            logger.error(
-                f"Error retrieving invocation step for suite {suite_id}: {config_error}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail="Invocation configuration not found",
-            )
+        return ResponseModel(
+            message=result["message"],
+            data=result["data"],
+        )
 
     except HTTPException:
         raise
@@ -633,63 +565,18 @@ def get_postprocessing_step(suite_id: UUID, db: Session = Depends(get_db)):
             input: dict
     """
     try:
-        # First verify that the suite exists
         suites_service = Suites(db)
-        suite_result = suites_service.get_suite(suite_id)
+        result = suites_service.get_postprocessing_step(suite_id)
 
-        if not suite_result["success"]:
-            if "not found" in suite_result["message"].lower():
-                raise HTTPException(status_code=404, detail=suite_result["message"])
-            raise HTTPException(status_code=400, detail=suite_result["message"])
+        if not result["success"]:
+            if "not found" in result["message"].lower():
+                raise HTTPException(status_code=404, detail=result["message"])
+            raise HTTPException(status_code=400, detail=result["message"])
 
-        # Get configuration from MinIO
-        try:
-            minio_client = MINIO()
-
-            # Get workflow configuration
-            workflow_config = minio_client.get_suite_config_file(
-                str(suite_id), "workflow-template.json", "production"
-            )
-            config_data = json.loads(workflow_config)
-
-            # Extract postprocessing step
-            postprocessing_step = (
-                config_data.get("workflow", {})
-                .get("steps", {})
-                .get("postprocessing", {})
-            )
-
-            # Try to get the script content if script file exists
-            script_content = None
-            script_name = postprocessing_step.get("script")
-            if script_name:
-                try:
-                    script_content = minio_client.get_suite_config_file(
-                        str(suite_id), script_name, "production"
-                    )
-                except Exception:
-                    # Script file doesn't exist yet
-                    pass
-
-            return ResponseModel(
-                message="Postprocessing step retrieved successfully",
-                data={
-                    "suite_id": str(suite_id),
-                    "description": postprocessing_step.get("description", ""),
-                    "script": script_name,
-                    "script_content": script_content,
-                    "input": postprocessing_step.get("input", {}),
-                },
-            )
-
-        except Exception as config_error:
-            logger.error(
-                f"Error retrieving postprocessing step for suite {suite_id}: {config_error}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail="Postprocessing configuration not found",
-            )
+        return ResponseModel(
+            message=result["message"],
+            data=result["data"],
+        )
 
     except HTTPException:
         raise
@@ -709,61 +596,18 @@ def get_evaluation_step(suite_id: UUID, db: Session = Depends(get_db)):
             input: dict
     """
     try:
-        # First verify that the suite exists
         suites_service = Suites(db)
-        suite_result = suites_service.get_suite(suite_id)
+        result = suites_service.get_evaluation_step(suite_id)
 
-        if not suite_result["success"]:
-            if "not found" in suite_result["message"].lower():
-                raise HTTPException(status_code=404, detail=suite_result["message"])
-            raise HTTPException(status_code=400, detail=suite_result["message"])
+        if not result["success"]:
+            if "not found" in result["message"].lower():
+                raise HTTPException(status_code=404, detail=result["message"])
+            raise HTTPException(status_code=400, detail=result["message"])
 
-        # Get configuration from MinIO
-        try:
-            minio_client = MINIO()
-
-            # Get workflow configuration
-            workflow_config = minio_client.get_suite_config_file(
-                str(suite_id), "workflow-template.json", "production"
-            )
-            config_data = json.loads(workflow_config)
-
-            # Extract evaluation step
-            evaluation_step = (
-                config_data.get("workflow", {}).get("steps", {}).get("evaluation", {})
-            )
-
-            # Try to get the script content if script file exists
-            script_content = None
-            script_name = evaluation_step.get("script")
-            if script_name:
-                try:
-                    script_content = minio_client.get_suite_config_file(
-                        str(suite_id), script_name, "production"
-                    )
-                except Exception:
-                    # Script file doesn't exist yet
-                    pass
-
-            return ResponseModel(
-                message="Evaluation step retrieved successfully",
-                data={
-                    "suite_id": str(suite_id),
-                    "description": evaluation_step.get("description", ""),
-                    "script": script_name,
-                    "script_content": script_content,
-                    "input": evaluation_step.get("input", {}),
-                },
-            )
-
-        except Exception as config_error:
-            logger.error(
-                f"Error retrieving evaluation step for suite {suite_id}: {config_error}"
-            )
-            raise HTTPException(
-                status_code=404,
-                detail="Evaluation configuration not found",
-            )
+        return ResponseModel(
+            message=result["message"],
+            data=result["data"],
+        )
 
     except HTTPException:
         raise
@@ -954,6 +798,11 @@ def update_suite_configuration(
         # Update configuration in MinIO
         minio_client = MINIO()
 
+        # Incrementing version
+        version = request.configuration["workflow"]["version"]
+        version = int(version) + 1
+        request.configuration["workflow"]["version"] = version
+
         # Convert configuration to JSON and upload
         config_json = json.dumps(request.configuration, indent=2)
         success = minio_client.upload_suite_config_file(
@@ -1128,4 +977,78 @@ def partial_update_suite_configuration(
         logger.error(
             f"Error partially updating configuration for suite {suite_id}: {e}"
         )
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/{suite_id}/test")
+def test_suite_configuration(
+    suite_id: UUID,
+    request: TestSuiteConfigurationRequest,
+    db: Session = Depends(get_db),
+):
+    """Test suite configuration with provided input
+    - **step**: The step to test (preprocessing, invocation, postprocessing, evaluation)
+    """
+    try:
+        # First verify that the suite exists
+        suites_service = Suites(db)
+        suite_result = suites_service.get_suite(suite_id)
+
+        if not suite_result["success"]:
+            if "not found" in suite_result["message"].lower():
+                raise HTTPException(status_code=404, detail=suite_result["message"])
+            raise HTTPException(status_code=400, detail=suite_result["message"])
+
+        # Get Suite's dataset_id
+        dataset_id = suite_result["data"]["dataset_id"]
+
+        # Get Suite's production workflow config using get_suite_config
+        config_response = get_suite_config(suite_id, db)
+        if not config_response.data["workflow_config"]:
+            raise HTTPException(
+                status_code=404, detail="No workflow configuration found for this suite"
+            )
+
+        config = (
+            config_response.data["workflow_config"].get("workflow", {}).get("steps", {})
+        )
+        step_order = [
+            "load_data",
+            "preprocessing",
+            "invocation",
+            "postprocessing",
+            "evaluation",
+        ]
+        if request.step not in step_order:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Step {request.step} not found",
+            )
+        else:
+            results = {}
+            try:
+                necessary_step = step_order[: step_order.index(request.step) + 1]
+                print(f"Executing: {necessary_step}")
+                for step in necessary_step:
+                    print(f"Testing step {step} for suite {suite_id}")
+                    step_output = suites_service.process_step(
+                        step, config, suite_id, dataset_id, results
+                    )
+                    print(f"Step {step} output: {step_output}")
+                    results[step] = step_output
+            except Exception as e:
+                logger.error(f"Error testing step {step} for suite {suite_id}: {e}")
+                raise HTTPException(status_code=500, detail="Internal server error")
+        return {
+            "success": True,
+            "dataset_id": dataset_id,
+            "necessary_step": necessary_step,
+            # "config": config,
+            "results": results,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting evaluation step for suite {suite_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

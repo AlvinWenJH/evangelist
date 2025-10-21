@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,55 +21,55 @@ export default function Dashboard() {
   const [totalSuites, setTotalSuites] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // Fetch stats, recent datasets, and recent suites in parallel
-        const [, datasetsResponse, suitesResponse] = await Promise.all([
-          apiClient.getStats().catch(() => ({
-            total_datasets: 0,
-            total_rows: 0,
-            total_size_bytes: 0,
-            recent_uploads: 0,
-          })),
-          apiClient.getDatasets({ limit: 3 }).catch(() => ({
-            message: 'Error',
-            data: {
-              datasets: [],
-              total: 0,
-              page: 1,
-              limit: 3,
-              total_page: 0,
-            },
-          })),
-          apiClient.getSuites({ limit: 3 }).catch(() => ({
-            message: 'Error',
-            data: {
-              data: [],
-              page: 1,
-              limit: 3,
-              total: 0,
-              total_page: 0,
-            },
-          })),
-        ]);
+      // Fetch stats, recent datasets, and recent suites in parallel
+      const [, datasetsResponse, suitesResponse] = await Promise.all([
+        apiClient.getStats().catch(() => ({
+          total_datasets: 0,
+          total_rows: 0,
+          total_size_bytes: 0,
+          recent_uploads: 0,
+        })),
+        apiClient.getDatasets({ limit: 3 }).catch(() => ({
+          message: 'Error',
+          data: {
+            datasets: [],
+            total: 0,
+            page: 1,
+            limit: 3,
+            total_page: 0,
+          },
+        })),
+        apiClient.getSuites({ limit: 3 }).catch(() => ({
+          message: 'Error',
+          data: {
+            data: [],
+            page: 1,
+            limit: 3,
+            total: 0,
+            total_page: 0,
+          },
+        })),
+      ]);
 
-        setRecentDatasets(datasetsResponse.data?.datasets || []);
-        setRecentSuites(suitesResponse.data?.data || []);
-        setTotalDatasets(datasetsResponse.data?.total || 0);
-        setTotalSuites(suitesResponse.data?.total || 0);
-      } catch (error) {
-        toast.error('Failed to load dashboard data');
-        console.error('Dashboard error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
+      setRecentDatasets(datasetsResponse.data?.datasets || []);
+      setRecentSuites(suitesResponse.data?.data || []);
+      setTotalDatasets(datasetsResponse.data?.total || 0);
+      setTotalSuites(suitesResponse.data?.total || 0);
+    } catch (error) {
+      toast.error('Failed to load dashboard data');
+      console.error('Dashboard error:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
 
 

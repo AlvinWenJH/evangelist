@@ -139,7 +139,7 @@ export default function DatasetsPage() {
     return () => {
       statsAbortController.abort();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchStats]);
 
   // Fetch datasets - runs on mount and when dependencies change
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function DatasetsPage() {
         abortControllerRef.current.abort();
       }
     };
-  }, [searchTerm, currentPage, itemsPerPage]);
+  }, [fetchDatasets, searchTerm, currentPage, itemsPerPage]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -170,7 +170,7 @@ export default function DatasetsPage() {
     setCurrentPage(page);
   };
 
-  const handleCreateDataset = async () => {
+  const handleCreateDataset = useCallback(async () => {
     if (!newDataset.name.trim()) {
       toast.error('Dataset name is required');
       return;
@@ -187,9 +187,9 @@ export default function DatasetsPage() {
       toast.error('Failed to create dataset');
       console.error('Create dataset error:', error);
     }
-  };
+  }, [newDataset, fetchDatasets, fetchStats]);
 
-  const handleDeleteDataset = async (id: string, name: string) => {
+  const handleDeleteDataset = useCallback(async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
       return;
     }
@@ -203,19 +203,19 @@ export default function DatasetsPage() {
       toast.error('Failed to delete dataset');
       console.error('Delete dataset error:', error);
     }
-  };
+  }, [fetchDatasets, fetchStats]);
 
-  const handleUploadClick = (dataset: Dataset) => {
+  const handleUploadClick = useCallback((dataset: Dataset) => {
     setSelectedDatasetForUpload(dataset);
     setIsUploadModalOpen(true);
-  };
+  }, []);
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = useCallback(() => {
     fetchDatasets();
     fetchStats(); // Refresh stats after upload
     setIsUploadModalOpen(false);
     setSelectedDatasetForUpload(null);
-  };
+  }, [fetchDatasets, fetchStats]);
 
   const formatNumber = (num: number | string) => {
     const numValue = typeof num === 'string' ? parseInt(num) : num;

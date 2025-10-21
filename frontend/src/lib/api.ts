@@ -15,7 +15,6 @@ import {
   PaginatedResponse,
   ApiError,
   SuiteConfig,
-  WorkflowConfig,
   WorkflowStep,
   CreateWorkflowConfigRequest,
   UpdateWorkflowConfigRequest,

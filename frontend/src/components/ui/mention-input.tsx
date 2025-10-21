@@ -1,10 +1,8 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Badge } from './badge'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './command'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface MentionInputProps {
@@ -15,22 +13,21 @@ interface MentionInputProps {
   className?: string
 }
 
-export function MentionInput({ 
-  value, 
-  onChange, 
-  placeholder = "Type @ to mention columns", 
+export function MentionInput({
+  value,
+  onChange,
+  placeholder = "Type @ to mention columns",
   availableColumns,
-  className 
+  className
 }: MentionInputProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionStart, setMentionStart] = useState(-1)
   const editorRef = useRef<HTMLDivElement>(null)
-  const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 })
 
   // Convert value to HTML with inline badges
   const valueToHtml = useCallback((text: string) => {
-    return text.replace(/@\[([^\]]+)\]/g, (match, columnName) => {
+    return text.replace(/@\[([^\]]+)\]/g, (_, columnName) => {
       return `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-secondary text-secondary-foreground rounded-md border" contenteditable="false" data-mention="${columnName}">@${columnName}<button class="ml-1 hover:bg-destructive/20 rounded-full p-0.5" onclick="this.parentElement.remove(); this.dispatchEvent(new CustomEvent('mention-removed', { bubbles: true }))"><svg class="h-2 w-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></button></span>`
     })
   }, [])
@@ -50,9 +47,9 @@ export function MentionInput({
       const currentSelection = window.getSelection()
       const range = currentSelection?.getRangeAt(0)
       const startOffset = range?.startOffset || 0
-      
+
       editorRef.current.innerHTML = valueToHtml(value)
-      
+
       // Restore cursor position
       if (currentSelection && range) {
         try {
@@ -64,7 +61,7 @@ export function MentionInput({
             currentSelection.removeAllRanges()
             currentSelection.addRange(newRange)
           }
-        } catch (e) {
+        } catch {
           // Ignore cursor positioning errors
         }
       }
@@ -75,7 +72,7 @@ export function MentionInput({
     const target = e.target as HTMLDivElement
     const textContent = target.textContent || ''
     const htmlContent = target.innerHTML
-    
+
     // Get cursor position
     const selection = window.getSelection()
     const range = selection?.getRangeAt(0)
@@ -84,13 +81,13 @@ export function MentionInput({
     // Check for @ mention trigger
     const lastAtIndex = textContent.lastIndexOf('@', cursorPos - 1)
     const textAfterAt = textContent.slice(lastAtIndex + 1, cursorPos)
-    
+
     if (lastAtIndex !== -1 && !textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
       // Check if we're not inside an existing mention badge
       const beforeAt = textContent.slice(0, lastAtIndex)
       const afterCursor = textContent.slice(cursorPos)
       const fullText = beforeAt + '@' + textAfterAt + afterCursor
-      
+
       if (!fullText.includes('@[' + textAfterAt + ']')) {
         setMentionStart(lastAtIndex)
         setMentionQuery(textAfterAt)
@@ -112,20 +109,20 @@ export function MentionInput({
 
     // Get the current value (which preserves existing mentions)
     const currentValue = htmlToValue(editorRef.current.innerHTML)
-    
+
     // Find the position in the actual text value, not textContent
     const beforeMention = currentValue.slice(0, mentionStart)
     const afterAtSymbol = currentValue.slice(mentionStart + 1) // Skip the @ symbol
-    
+
     // Find where the current mention query ends
     const queryEndIndex = afterAtSymbol.indexOf(' ')
-    let endIndex = queryEndIndex === -1 ? mentionQuery.length : queryEndIndex
-    
+    const endIndex = queryEndIndex === -1 ? mentionQuery.length : queryEndIndex
+
     const afterMention = afterAtSymbol.slice(endIndex)
     const newValue = `${beforeMention}@[${column}]${afterMention}`
-    
+
     onChange(newValue)
-    
+
     setIsOpen(false)
     setMentionStart(-1)
     setMentionQuery('')
@@ -147,20 +144,13 @@ export function MentionInput({
     }, 0)
   }
 
-  const handleMentionRemoved = () => {
-    // Update value when a mention badge is removed
-    if (editorRef.current) {
-      const newValue = htmlToValue(editorRef.current.innerHTML)
-      onChange(newValue)
-    }
-  }
 
   const filteredColumns = availableColumns.filter(column =>
     column.toLowerCase().includes(mentionQuery.toLowerCase())
   )
 
   return (
-    <Popover open={isOpen} onOpenChange={() => {}}>
+    <Popover open={isOpen} onOpenChange={() => { }}>
       <PopoverTrigger asChild>
         <div
           ref={editorRef}
@@ -208,8 +198,8 @@ export function MentionInput({
           style={{ minHeight: '36px', lineHeight: '20px' }}
         />
       </PopoverTrigger>
-      
-      <PopoverContent 
+
+      <PopoverContent
         className="w-[300px] p-0 max-h-[200px] overflow-auto"
         align="start"
         side="bottom"

@@ -17,9 +17,13 @@ def preprocess_data(data: dict, input_columns: list = [], groundtruth_column: st
 
     if groundtruth_column:
         groundtruth = data[groundtruth_column]
+    else:
+        groundtruth = ""
     # Select only the columns specified in input_columns
     if input_columns:
         data = {k: v for k, v in data.items() if k in input_columns}
+    else:
+        data = {}
     # Select only the columns specified in groundtruth_columns
 
     return {"input": data, "groundtruth": groundtruth}

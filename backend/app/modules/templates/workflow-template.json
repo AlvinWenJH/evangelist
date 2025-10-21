@@ -17,9 +17,12 @@
                 "script": "invocation-script.py",
                 "input": {
                     "url": "http://localhost:8000/api/",
-                    "data": {},
-                    "headers": {},
-                    "method": "GET"
+                    "method": "POST",
+                    "input_type": {
+                        "body": {
+                            "json": []
+                        }
+                    }
                 }
             },
             "postprocessing": {

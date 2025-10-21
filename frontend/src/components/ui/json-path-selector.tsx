@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  FileText, 
-  Hash, 
+import {
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  Hash,
   ToggleLeft,
   Braces,
   Brackets,
@@ -31,7 +30,7 @@ interface JsonPathSelectorProps {
 
 interface JsonNode {
   key: string;
-  value: any;
+  value: unknown;
   type: 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null';
   path: string;
   children?: JsonNode[];
@@ -66,7 +65,7 @@ const getTypeIcon = (type: string) => {
   }
 };
 
-const getValueType = (value: any): JsonNode['type'] => {
+const getValueType = (value: unknown): JsonNode['type'] => {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';
   if (typeof value === 'object') return 'object';
@@ -76,10 +75,10 @@ const getValueType = (value: any): JsonNode['type'] => {
   return 'null';
 };
 
-const parseJsonToNodes = (obj: any, parentPath = '', parentKey = 'root'): JsonNode => {
+const parseJsonToNodes = (obj: unknown, parentPath = '', parentKey = 'root'): JsonNode => {
   const type = getValueType(obj);
   const currentPath = parentPath ? `${parentPath}.${parentKey}` : parentKey;
-  
+
   const node: JsonNode = {
     key: parentKey,
     value: obj,
@@ -89,11 +88,11 @@ const parseJsonToNodes = (obj: any, parentPath = '', parentKey = 'root'): JsonNo
   };
 
   if (type === 'object' && obj !== null) {
-    node.children = Object.entries(obj).map(([key, value]) => 
+    node.children = Object.entries(obj as Record<string, unknown>).map(([key, value]) =>
       parseJsonToNodes(value, currentPath, key)
     );
   } else if (type === 'array') {
-    node.children = obj.map((item: any, index: number) => 
+    node.children = (obj as unknown[]).map((item: unknown, index: number) =>
       parseJsonToNodes(item, currentPath, `[${index}]`)
     );
   }
@@ -101,35 +100,13 @@ const parseJsonToNodes = (obj: any, parentPath = '', parentKey = 'root'): JsonNo
   return node;
 };
 
-const getValueAtPath = (obj: any, path: string): any => {
-  if (!path) return obj;
-  
-  try {
-    const keys = path.split('.');
-    let current = obj;
-    
-    for (const key of keys) {
-      if (key.includes('[') && key.includes(']')) {
-        const arrayKey = key.substring(0, key.indexOf('['));
-        const index = parseInt(key.substring(key.indexOf('[') + 1, key.indexOf(']')));
-        current = current[arrayKey][index];
-      } else {
-        current = current[key];
-      }
-    }
-    
-    return current;
-  } catch (error) {
-    return undefined;
-  }
-};
 
-export function JsonPathSelector({ 
-  value, 
-  onChange, 
-  exampleJson, 
+export function JsonPathSelector({
+  value,
+  onChange,
+  exampleJson,
   placeholder = "Enter JSON path (e.g., result.text)",
-  className 
+  className
 }: JsonPathSelectorProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
@@ -174,7 +151,7 @@ export function JsonPathSelector({
 
     return (
       <div key={node.path} className="select-none">
-        <div 
+        <div
           className={cn(
             "flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-muted/50 transition-colors",
             isSelected && "bg-primary/10 border border-primary/20",
@@ -192,25 +169,25 @@ export function JsonPathSelector({
                 toggleNode(node.path);
               }}
             >
-              {isExpanded ? 
-                <ChevronDown className="w-3 h-3" /> : 
+              {isExpanded ?
+                <ChevronDown className="w-3 h-3" /> :
                 <ChevronRight className="w-3 h-3" />
               }
             </Button>
           )}
-          
+
           {!hasChildren && <div className="w-4" />}
-          
+
           {getTypeIcon(node.type)}
-          
+
           <span className="font-mono text-sm">
             {node.key === 'root' ? 'Response' : node.key}
           </span>
-          
+
           <Badge variant="outline" className="text-xs">
             {node.type}
           </Badge>
-          
+
           {node.path && (
             <span className="text-xs text-muted-foreground ml-auto font-mono">
               {node.path}

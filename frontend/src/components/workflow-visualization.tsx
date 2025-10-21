@@ -12,7 +12,6 @@ import {
     Edge,
     Node,
     BackgroundVariant,
-    MarkerType,
     Handle,
     Position,
 } from '@xyflow/react';
@@ -23,30 +22,39 @@ import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import {
     Plus,
-    Play,
-    Edit,
-    FileText,
     Settings,
     Database,
     Send,
     BarChart3
 } from 'lucide-react';
-import { WorkflowConfig, WorkflowStep } from '@/lib/types';
+import { WorkflowConfig } from '@/lib/types';
 
 interface WorkflowVisualizationProps {
     workflowConfig: WorkflowConfig | null;
-    suiteId: string;
     onCreateWorkflow: () => void;
     onEditStep: (stepName: string) => void;
-    onRunWorkflow: () => void;
-    onEditWorkflow: () => void;
     isReadOnly?: boolean;
 }
 
 // Custom node component for workflow steps
-const WorkflowStepNode = ({ data }: { data: any }) => {
+interface WorkflowStepNodeData {
+    label: string;
+    stepName: string;
+    stepType: string;
+    stepData: {
+        description?: string;
+        script?: string;
+        input?: Record<string, unknown>;
+    };
+    onEdit: (stepName: string) => void;
+    isReadOnly: boolean;
+    hoveredNodeId: string | null;
+    setHoveredNodeId: (id: string | null) => void;
+}
+
+const WorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
     const [isHovered, setIsHovered] = useState(false);
-    const { hoveredNodeId, setHoveredNodeId } = data;
+    const { setHoveredNodeId } = data;
 
     const getStepIcon = (stepName: string) => {
         switch (stepName) {
@@ -216,11 +224,8 @@ const nodeTypes = {
 
 export default function WorkflowVisualization({
     workflowConfig,
-    suiteId,
     onCreateWorkflow,
     onEditStep,
-    onRunWorkflow,
-    onEditWorkflow,
     isReadOnly = false
 }: WorkflowVisualizationProps) {
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -247,6 +252,8 @@ export default function WorkflowVisualization({
                 type: 'workflowStep',
                 position: { x: xPosition, y: 100 },
                 data: {
+                    label: stepName.charAt(0).toUpperCase() + stepName.slice(1),
+                    stepName: stepName,
                     stepType: stepName,
                     stepData: workflowConfig?.workflow.steps[stepName as keyof typeof workflowConfig.workflow.steps] || null,
                     onEdit: onEditStep,

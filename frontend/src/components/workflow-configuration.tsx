@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -28,13 +26,11 @@ import {
   Settings,
   Send,
   BarChart3,
-  Plus,
-  Trash2,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { WorkflowConfig, WorkflowStep, SuiteConfig, Suite, InvocationInput } from '@/lib/types';
+import { WorkflowConfig, Suite, InvocationInput } from '@/lib/types';
 import DatasetPreviewComponent from './dataset-preview';
 import { formatDate } from '@/lib/date-utils';
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select';
@@ -44,15 +40,24 @@ import { JsonPathSelector } from '@/components/ui/json-path-selector';
 import { MetricsSelector } from '@/components/ui/metrics-selector';
 
 interface WorkflowConfigurationProps {
-  suiteId: string;
   initialConfig?: WorkflowConfig | null;
-  suiteConfig?: SuiteConfig | null;
   suite?: Suite | null;
   onConfigChange?: (config: WorkflowConfig) => void;
 }
 
 // Custom node component for vertical workflow steps (without hover cards)
-const VerticalWorkflowStepNode = ({ data }: { data: any }) => {
+interface WorkflowStepNodeData {
+  label: string;
+  stepName: string;
+  stepType: string;
+  stepData?: {
+    description?: string;
+    script?: string;
+    input?: Record<string, unknown>;
+  };
+}
+
+const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
   const getStepIcon = (stepName: string) => {
     switch (stepName) {
       case 'database':
@@ -175,9 +180,7 @@ const nodeTypes = {
 };
 
 export default function WorkflowConfiguration({
-  suiteId,
   initialConfig,
-  suiteConfig,
   suite,
   onConfigChange
 }: WorkflowConfigurationProps) {
@@ -207,12 +210,8 @@ export default function WorkflowConfiguration({
             input: {
               url: process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:8000/api",
               method: "POST",
-              params: [],
-              bodyType: "none" as const,
-              body: {
-                json: [],
-                formData: []
-              }
+              headers: [],
+              input_type: {}
             }
           },
           postprocessing: {
@@ -267,7 +266,7 @@ export default function WorkflowConfiguration({
     const databaseHeight = 64; // w-16 h-16 = 64px
     const regularNodeHeight = 48; // Estimated height based on content and padding
 
-    const nodes: Node[] = stepNames.map((stepName, index) => {
+    const nodes: Node[] = stepNames.map((stepName) => {
       // Center-align the database node since it's smaller (64px vs 144px width)
       const xPosition = stepName === 'database' ? 50 : 10; // (144-64)/2 + 10 = 50
 
@@ -285,6 +284,8 @@ export default function WorkflowConfiguration({
         type: 'verticalWorkflowStep',
         position: { x: xPosition, y: yPosition },
         data: {
+          label: stepName.charAt(0).toUpperCase() + stepName.slice(1),
+          stepName: stepName,
           stepType: stepName,
           stepData: config?.workflow.steps[stepName as keyof typeof config.workflow.steps] || null,
         },
@@ -333,8 +334,8 @@ export default function WorkflowConfiguration({
     return { initialNodes: nodes, initialEdges: edges };
   }, [config]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   // Notify parent component when config changes
   useEffect(() => {
@@ -343,36 +344,39 @@ export default function WorkflowConfiguration({
     }
   }, [config, onConfigChange]);
 
-  const updateWorkflowInfo = (field: string, value: string) => {
-    setConfig(prev => ({
-      ...prev,
-      workflow: {
-        ...prev.workflow,
-        [field]: value
-      }
-    }));
-  };
 
-  const updateStepInfo = (stepName: string, field: string, value: string) => {
-    setConfig(prev => ({
-      ...prev,
-      workflow: {
-        ...prev.workflow,
-        steps: {
-          ...prev.workflow.steps,
-          [stepName]: {
-            ...prev.workflow.steps[stepName as keyof typeof prev.workflow.steps],
-            [field]: value
-          }
-        }
-      }
-    }));
-  };
 
-  const updateStepInput = (stepName: string, inputField: string, value: any) => {
+  const updateStepInput = (stepName: string, inputField: string, value: unknown) => {
     setConfig(prev => {
       const currentStep = prev.workflow.steps[stepName as keyof typeof prev.workflow.steps];
-      const currentInput = currentStep?.input || {};
+      
+      // Handle invocation step separately due to different type structure
+      if (stepName === 'invocation') {
+        const invocationStep = currentStep as typeof prev.workflow.steps.invocation;
+        const currentInput = invocationStep?.input || {} as InvocationInput;
+        
+        return {
+          ...prev,
+          workflow: {
+            ...prev.workflow,
+            steps: {
+              ...prev.workflow.steps,
+              invocation: {
+                description: invocationStep?.description || "",
+                script: invocationStep?.script || "",
+                input: {
+                  ...currentInput,
+                  [inputField]: value
+                }
+              }
+            }
+          }
+        };
+      }
+      
+      // Handle other steps (preprocessing, postprocessing, evaluation)
+      const regularStep = currentStep as Exclude<typeof currentStep, typeof prev.workflow.steps.invocation>;
+      const currentInput = regularStep?.input || {};
 
       return {
         ...prev,
@@ -381,8 +385,8 @@ export default function WorkflowConfiguration({
           steps: {
             ...prev.workflow.steps,
             [stepName]: {
-              description: currentStep?.description || "",
-              script: currentStep?.script || "",
+              description: regularStep?.description || "",
+              script: regularStep?.script || "",
               input: {
                 ...currentInput,
                 [inputField]: value
@@ -572,7 +576,7 @@ export default function WorkflowConfiguration({
                         <Label>Input Columns</Label>
                         <MultiSelect
                           options={datasetColumns}
-                          selected={config.workflow.steps.preprocessing.input.input_columns}
+                          selected={config.workflow.steps.preprocessing.input.input_columns as string[]}
                           onChange={updateInputColumns}
                           placeholder={loadingColumns ? "Loading columns..." : "Select input columns"}
                           disabled={loadingColumns || datasetColumns.length === 0}
@@ -586,7 +590,7 @@ export default function WorkflowConfiguration({
                       <div className="space-y-3">
                         <Label htmlFor="groundtruth-column">Ground Truth Column</Label>
                         <Select
-                          value={config.workflow.steps.preprocessing.input.groundtruth_column}
+                          value={config.workflow.steps.preprocessing.input.groundtruth_column as string}
                           onValueChange={(value) => updateStepInput('preprocessing', 'groundtruth_column', value)}
                           disabled={loadingColumns || datasetColumns.length === 0}
                         >
@@ -620,8 +624,8 @@ export default function WorkflowConfiguration({
                     </AccordionTrigger>
                     <AccordionContent className="py-4">
                       <InvocationConfig
-                        config={config.workflow.steps.invocation.input as InvocationInput}
-                        availableColumns={config.workflow.steps.preprocessing.input.input_columns}
+                        config={config.workflow.steps.invocation.input}
+                        availableColumns={config.workflow.steps.preprocessing.input.input_columns as string[]}
                         onChange={(invocationConfig) => {
                           setConfig(prev => ({
                             ...prev,
@@ -671,7 +675,7 @@ export default function WorkflowConfiguration({
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
                       <JsonPathSelector
-                        value={config.workflow.steps.postprocessing.input.field}
+                        value={config.workflow.steps.postprocessing.input.field as string}
                         onChange={(path) => updateStepInput('postprocessing', 'field', path)}
                         placeholder="Select the field to extract from the API response"
                       />
@@ -688,7 +692,7 @@ export default function WorkflowConfiguration({
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
                       <MetricsSelector
-                        selectedMetrics={config.workflow.steps.evaluation.input.metrics}
+                        selectedMetrics={config.workflow.steps.evaluation.input.metrics as string[]}
                         onMetricsChange={(metrics) => updateStepInput('evaluation', 'metrics', metrics)}
                       />
                     </AccordionContent>

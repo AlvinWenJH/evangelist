@@ -19,7 +19,6 @@ import {
   BarChart3,
   Upload
 } from 'lucide-react';
-import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Dataset, DatasetPreview, DatasetHistory } from '@/lib/types';
 import { toast } from 'sonner';

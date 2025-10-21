@@ -8,6 +8,8 @@ import json
 
 from app.modules.suites.repo import SuitesRepo
 from app.modules.suites.models import SuiteStatus
+from app.modules.datasets import Datasets
+from app.modules.minio import MINIO
 
 import logging
 
@@ -612,7 +614,9 @@ class Suites:
                 "message": "Failed to retrieve suites",
             }
 
-    def save_config_as_version(self, suite_id: UUID, initial_version: bool = False) -> Dict[str, Any]:
+    def save_config_as_version(
+        self, suite_id: UUID, initial_version: bool = False
+    ) -> Dict[str, Any]:
         """Save current production config as a new draft version"""
         try:
             self._validate_uuid(suite_id)
@@ -666,7 +670,9 @@ class Suites:
                 "data": None,
             }
 
-    def rollback_to_config_version(self, suite_id: UUID, version: int) -> Dict[str, Any]:
+    def rollback_to_config_version(
+        self, suite_id: UUID, version: int
+    ) -> Dict[str, Any]:
         """Rollback to a specific config version"""
         try:
             self._validate_uuid(suite_id)
@@ -782,3 +788,402 @@ class Suites:
                 "message": "Failed to get config versions",
                 "data": None,
             }
+
+    def get_preprocessing_step(self, suite_id: UUID) -> Dict[str, Any]:
+        """Get preprocessing step by suite ID
+        Returns:
+            dict:
+                description: Preprocessing step configuration
+                script: str
+                script_content: str
+                input: dict
+        """
+        try:
+            # First verify that the suite exists
+            suite_result = self.get_suite(suite_id)
+
+            if not suite_result["success"]:
+                return suite_result
+
+            # Get configuration from MinIO
+            try:
+                minio_client = MINIO()
+
+                # Get workflow configuration
+                workflow_config = minio_client.get_suite_config_file(
+                    str(suite_id), "workflow-template.json", "production"
+                )
+                config_data = json.loads(workflow_config)
+
+                # Extract preprocessing step
+                preprocessing_step = (
+                    config_data.get("workflow", {})
+                    .get("steps", {})
+                    .get("preprocessing", {})
+                )
+
+                # Try to get the script content if script file exists
+                script_content = None
+                script_name = preprocessing_step.get("script")
+                if script_name:
+                    try:
+                        script_content = minio_client.get_suite_config_file(
+                            str(suite_id), script_name, "production"
+                        )
+                    except Exception:
+                        # Script file doesn't exist yet
+                        pass
+
+                return {
+                    "success": True,
+                    "message": "Preprocessing step retrieved successfully",
+                    "data": {
+                        "suite_id": str(suite_id),
+                        "description": preprocessing_step.get("description", ""),
+                        "script": script_name,
+                        "script_content": script_content,
+                        "input": preprocessing_step.get("input", {}),
+                    },
+                }
+
+            except Exception as config_error:
+                logger.error(
+                    f"Error retrieving preprocessing step for suite {suite_id}: {config_error}"
+                )
+                return {
+                    "success": False,
+                    "error": "Configuration not found",
+                    "message": "Preprocessing configuration not found",
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting preprocessing step for suite {suite_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to retrieve preprocessing step",
+            }
+
+    def get_invocation_step(self, suite_id: UUID) -> Dict[str, Any]:
+        """Get invocation step by suite ID
+        Returns:
+            dict:
+                description: Invocation step configuration
+                script: str
+                script_content: str
+                input: dict
+        """
+        try:
+            # First verify that the suite exists
+            suite_result = self.get_suite(suite_id)
+
+            if not suite_result["success"]:
+                return suite_result
+
+            # Get configuration from MinIO
+            try:
+                minio_client = MINIO()
+
+                # Get workflow configuration
+                workflow_config = minio_client.get_suite_config_file(
+                    str(suite_id), "workflow-template.json", "production"
+                )
+                config_data = json.loads(workflow_config)
+
+                # Extract invocation step
+                invocation_step = (
+                    config_data.get("workflow", {})
+                    .get("steps", {})
+                    .get("invocation", {})
+                )
+
+                # Try to get the script content if script file exists
+                script_content = None
+                script_name = invocation_step.get("script")
+                if script_name:
+                    try:
+                        script_content = minio_client.get_suite_config_file(
+                            str(suite_id), script_name, "production"
+                        )
+                    except Exception:
+                        # Script file doesn't exist yet
+                        pass
+
+                return {
+                    "success": True,
+                    "message": "Invocation step retrieved successfully",
+                    "data": {
+                        "suite_id": str(suite_id),
+                        "description": invocation_step.get("description", ""),
+                        "script": script_name,
+                        "script_content": script_content,
+                        "input": invocation_step.get("input", {}),
+                    },
+                }
+
+            except Exception as config_error:
+                logger.error(
+                    f"Error retrieving invocation step for suite {suite_id}: {config_error}"
+                )
+                return {
+                    "success": False,
+                    "error": "Configuration not found",
+                    "message": "Invocation configuration not found",
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting invocation step for suite {suite_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to retrieve invocation step",
+            }
+
+    def get_postprocessing_step(self, suite_id: UUID) -> Dict[str, Any]:
+        """Get postprocessing step by suite ID
+        Returns:
+            dict:
+                description: Postprocessing step configuration
+                script: str
+                script_content: str
+                input: dict
+        """
+        try:
+            # First verify that the suite exists
+            suite_result = self.get_suite(suite_id)
+
+            if not suite_result["success"]:
+                return suite_result
+
+            # Get configuration from MinIO
+            try:
+                minio_client = MINIO()
+
+                # Get workflow configuration
+                workflow_config = minio_client.get_suite_config_file(
+                    str(suite_id), "workflow-template.json", "production"
+                )
+                config_data = json.loads(workflow_config)
+
+                # Extract postprocessing step
+                postprocessing_step = (
+                    config_data.get("workflow", {})
+                    .get("steps", {})
+                    .get("postprocessing", {})
+                )
+
+                # Try to get the script content if script file exists
+                script_content = None
+                script_name = postprocessing_step.get("script")
+                if script_name:
+                    try:
+                        script_content = minio_client.get_suite_config_file(
+                            str(suite_id), script_name, "production"
+                        )
+                    except Exception:
+                        # Script file doesn't exist yet
+                        pass
+
+                return {
+                    "success": True,
+                    "message": "Postprocessing step retrieved successfully",
+                    "data": {
+                        "suite_id": str(suite_id),
+                        "description": postprocessing_step.get("description", ""),
+                        "script": script_name,
+                        "script_content": script_content,
+                        "input": postprocessing_step.get("input", {}),
+                    },
+                }
+
+            except Exception as config_error:
+                logger.error(
+                    f"Error retrieving postprocessing step for suite {suite_id}: {config_error}"
+                )
+                return {
+                    "success": False,
+                    "error": "Configuration not found",
+                    "message": "Postprocessing configuration not found",
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting postprocessing step for suite {suite_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to retrieve postprocessing step",
+            }
+
+    def get_evaluation_step(self, suite_id: UUID) -> Dict[str, Any]:
+        """Get evaluation step by suite ID
+        Returns:
+            dict:
+                description: Evaluation step configuration
+                script: str
+                script_content: str
+                input: dict
+        """
+        try:
+            # First verify that the suite exists
+            suite_result = self.get_suite(suite_id)
+
+            if not suite_result["success"]:
+                return suite_result
+
+            # Get configuration from MinIO
+            try:
+                minio_client = MINIO()
+
+                # Get workflow configuration
+                workflow_config = minio_client.get_suite_config_file(
+                    str(suite_id), "workflow-template.json", "production"
+                )
+                config_data = json.loads(workflow_config)
+
+                # Extract evaluation step
+                evaluation_step = (
+                    config_data.get("workflow", {})
+                    .get("steps", {})
+                    .get("evaluation", {})
+                )
+
+                # Try to get the script content if script file exists
+                script_content = None
+                script_name = evaluation_step.get("script")
+                if script_name:
+                    try:
+                        script_content = minio_client.get_suite_config_file(
+                            str(suite_id), script_name, "production"
+                        )
+                    except Exception:
+                        # Script file doesn't exist yet
+                        pass
+
+                return {
+                    "success": True,
+                    "message": "Evaluation step retrieved successfully",
+                    "data": {
+                        "suite_id": str(suite_id),
+                        "description": evaluation_step.get("description", ""),
+                        "script": script_name,
+                        "script_content": script_content,
+                        "input": evaluation_step.get("input", {}),
+                    },
+                }
+
+            except Exception as config_error:
+                logger.error(
+                    f"Error retrieving evaluation step for suite {suite_id}: {config_error}"
+                )
+                return {
+                    "success": False,
+                    "error": "Configuration not found",
+                    "message": "Evaluation configuration not found",
+                }
+
+        except Exception as e:
+            logger.error(f"Error getting evaluation step for suite {suite_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to retrieve evaluation step",
+            }
+
+    def _execute_script_content(
+        self, script_content: str, function_name: str, **kwargs
+    ) -> Dict[str, Any]:
+        """Execute script content dynamically and return the result"""
+        try:
+            # Create a local namespace for script execution
+            local_namespace = {}
+
+            # Execute the script content to define the function
+            exec(script_content, {}, local_namespace)
+
+            # Check if the function exists in the namespace
+            if function_name not in local_namespace:
+                raise ValueError(
+                    f"Function '{function_name}' not found in script content"
+                )
+
+            # Get the function and execute it
+            func = local_namespace[function_name]
+            result = func(**kwargs)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error executing script content: {e}")
+            raise
+
+    def process_step(
+        self,
+        step: str,
+        config: Dict[str, Any],
+        suite_id: UUID,
+        dataset_id: UUID,
+        results: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Process a single step with the given config"""
+        try:
+            if step == "load_data":
+                output = self.load_row_from_data(suite_id, dataset_id)
+            elif step == "preprocessing":
+                previous_step_result = results.get("load_data", {})
+                preprocessing_config = config.get("preprocessing", {})
+
+                # Execute script content if available
+                script_content = preprocessing_config.get("script_content")
+                print(f"script_content: \n{script_content}", flush=True)
+
+                if script_content:
+                    try:
+                        # Get input parameters from config
+                        input_params = {
+                            "data": previous_step_result,
+                            **preprocessing_config.get("input", {}),
+                        }
+
+                        # Execute the preprocessing function
+                        output = self._execute_script_content(
+                            script_content=script_content,
+                            function_name="preprocess_data",
+                            **input_params,
+                        )
+                        logger.info(
+                            f"Preprocessing step executed successfully for suite {suite_id}"
+                        )
+
+                    except ValueError as ve:
+                        logger.error(f"Validation error in preprocessing script: {ve}")
+                        raise SuiteValidationError(
+                            f"Preprocessing validation failed: {ve}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error executing preprocessing script: {e}")
+                        raise SuiteValidationError(
+                            f"Preprocessing execution failed: {e}"
+                        )
+                else:
+                    logger.warning("No script content found for preprocessing step")
+                    output = previous_step_result
+            else:
+                output = None
+            return output
+
+        except SuiteValidationError as e:
+            logger.error(f"Validation error processing step {step}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error processing step {step}: {e}")
+            raise
+
+    def load_row_from_data(self, suite_id: UUID, dataset_id: UUID) -> Dict[str, Any]:
+        """Load a row of data from the dataset"""
+        try:
+            datasets_service = Datasets(self.session)
+            row = datasets_service.preview_dataset(dataset_id, limit=1)
+            return row["data"]["rows"][0]
+
+        except Exception as e:
+            raise

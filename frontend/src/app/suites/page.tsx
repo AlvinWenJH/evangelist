@@ -133,28 +133,28 @@ export default function SuitesPage() {
   useEffect(() => {
     fetchStats();
     fetchDatasets();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchStats, fetchDatasets]);
 
   // Fetch suites when search term, status filter, or page changes
   useEffect(() => {
     fetchSuites();
-  }, [searchTerm, statusFilter, currentPage, itemsPerPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchSuites, searchTerm, statusFilter, currentPage, itemsPerPage]);
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1); // Reset to first page when searching
-  };
+  }, []);
 
-  const handleStatusFilterChange = (value: SuiteStatus | 'ALL') => {
+  const handleStatusFilterChange = useCallback((value: SuiteStatus | 'ALL') => {
     setStatusFilter(value);
     setCurrentPage(1); // Reset to first page when filtering
-  };
+  }, []);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
-  };
+  }, []);
 
-  const handleCreateSuite = async () => {
+  const handleCreateSuite = useCallback(async () => {
     if (!newSuite.name.trim()) {
       toast.error('Suite name is required');
       return;
@@ -176,9 +176,9 @@ export default function SuitesPage() {
       toast.error('Failed to create evaluation suite');
       console.error('Create suite error:', error);
     }
-  };
+  }, [newSuite, fetchSuites, fetchStats]);
 
-  const handleDeleteSuite = async (id: string, name: string) => {
+  const handleDeleteSuite = useCallback(async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
       return;
     }
@@ -192,20 +192,20 @@ export default function SuitesPage() {
       toast.error('Failed to delete evaluation suite');
       console.error('Delete suite error:', error);
     }
-  };
+  }, [fetchSuites, fetchStats]);
 
-  const handleCreateEvalClick = (suite: Suite) => {
+  const handleCreateEvalClick = useCallback((suite: Suite) => {
     setSelectedSuiteForEval(suite);
     setIsCreateEvalDialogOpen(true);
-  };
+  }, []);
 
-  const handleCreateEval = () => {
+  const handleCreateEval = useCallback(() => {
     // TODO: Implement evaluation creation logic
     toast.success('Evaluation created successfully');
     setIsCreateEvalDialogOpen(false);
     setSelectedSuiteForEval(null);
     fetchSuites(); // Refresh to update eval counts
-  };
+  }, [fetchSuites]);
 
   const formatNumber = (num: number | string) => {
     const numValue = typeof num === 'string' ? parseInt(num) : num;

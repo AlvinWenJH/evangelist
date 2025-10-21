@@ -2,10 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Play } from 'lucide-react';
-import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { Suite, SuiteConfig, WorkflowConfig } from '@/lib/types';
 import { toast } from 'sonner';
@@ -35,14 +33,14 @@ export default function EditConfigurationPage() {
       try {
         const configResponse = await apiClient.getSuiteConfig(suiteId);
         setSuiteConfig(configResponse);
-      } catch (configError: any) {
-        if (configError.status_code === 404) {
+      } catch (configError: unknown) {
+        if (configError && typeof configError === 'object' && 'status_code' in configError && configError.status_code === 404) {
           setSuiteConfig(null);
         } else {
           throw configError;
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching suite data:', error);
       toast.error('Failed to load suite data');
     } finally {
@@ -54,7 +52,7 @@ export default function EditConfigurationPage() {
     fetchSuiteData();
   }, [fetchSuiteData]);
 
-  const handleSaveWorkflow = async () => {
+  const handleSaveWorkflow = useCallback(async () => {
     if (!currentConfig) {
       toast.error('No configuration to save');
       return;
@@ -69,15 +67,15 @@ export default function EditConfigurationPage() {
 
       // Navigate back to the suite detail page
       router.push(`/suites/${suiteId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving workflow:', error);
       toast.error('Failed to save workflow configuration');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [currentConfig, suiteId, router]);
 
-  const handleTestWorkflow = async () => {
+  const handleTestWorkflow = useCallback(async () => {
     if (!currentConfig) {
       toast.error('No configuration to test');
       return;
@@ -90,17 +88,13 @@ export default function EditConfigurationPage() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       toast.success('Workflow test completed successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error testing workflow:', error);
       toast.error('Failed to test workflow configuration');
     } finally {
       setIsTesting(false);
     }
-  };
-
-  const handleCancel = () => {
-    router.push(`/suites/${suiteId}`);
-  };
+  }, [currentConfig]);
 
   if (isLoading) {
     return (
@@ -170,9 +164,7 @@ export default function EditConfigurationPage() {
 
       {/* Configuration Form */}
       <WorkflowConfiguration
-        suiteId={suiteId}
         initialConfig={suiteConfig?.workflow_config || null}
-        suiteConfig={suiteConfig}
         suite={suite}
         onConfigChange={setCurrentConfig}
       />

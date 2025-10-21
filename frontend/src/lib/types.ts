@@ -141,7 +141,7 @@ export interface UpdateSuiteRequest {
 export interface WorkflowStep {
   description: string;
   script: string;
-  input: Record<string, any>;
+  input: Record<string, unknown>;
 }
 
 // Enhanced Invocation Types
@@ -153,7 +153,26 @@ export interface KeyValuePair {
 
 export type RequestBodyType = 'none' | 'json' | 'formData';
 
+// New unified input type structure
+export interface InputTypeConfig {
+  params?: {
+    data: KeyValuePair[];
+  };
+  body?: {
+    json?: KeyValuePair[];
+    form?: KeyValuePair[];
+  };
+}
+
 export interface InvocationInput {
+  url: string;
+  method: string;
+  headers?: KeyValuePair[];
+  input_type: InputTypeConfig;
+}
+
+// Legacy interface for backward compatibility
+export interface LegacyInvocationInput {
   url: string;
   method: string;
   params: KeyValuePair[];
@@ -164,6 +183,12 @@ export interface InvocationInput {
   };
 }
 
+export interface InvocationWorkflowStep {
+  description: string;
+  script: string;
+  input: InvocationInput;
+}
+
 export interface WorkflowConfig {
   workflow: {
     name: string;
@@ -171,12 +196,12 @@ export interface WorkflowConfig {
     version: number;
     steps: {
       preprocessing: WorkflowStep;
-      invocation: WorkflowStep;
+      invocation: InvocationWorkflowStep;
       postprocessing: WorkflowStep;
       evaluation: WorkflowStep;
     };
   };
-  config_files?: Record<string, any>;
+  config_files?: Record<string, unknown>;
 }
 
 export interface SuiteConfig {
