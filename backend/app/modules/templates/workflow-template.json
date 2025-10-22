@@ -16,7 +16,7 @@
                 "description": "request invocation",
                 "script": "invocation-script.py",
                 "input": {
-                    "url": "http://localhost:8000/api/",
+                    "url": "http://localhost:8000/api/v1/invocations/test",
                     "method": "POST",
                     "input_type": {
                         "body": {
