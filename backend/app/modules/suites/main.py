@@ -1102,8 +1102,14 @@ class Suites:
                 "re": re,
                 "uuid": uuid,
                 "logging": logging,
+                "os": __import__("os"),
                 # Third-party modules that are commonly used
                 "requests": __import__("requests"),
+                "np": __import__("numpy"),
+                "cosine_similarity": __import__(
+                    "sklearn.metrics.pairwise", fromlist=["cosine_similarity"]
+                ).cosine_similarity,
+                "genai": __import__("google", fromlist=["genai"]).genai,
                 # Add other commonly used modules as needed
             }
 
@@ -1113,14 +1119,21 @@ class Suites:
             # Execute the script content to define the function
             exec(script_content, global_namespace, local_namespace)
 
+            # Merge local namespace functions into global namespace
+            # This allows functions to call each other
+            for name, obj in local_namespace.items():
+                if callable(obj):
+                    global_namespace[name] = obj
+
             # Check if the function exists in the namespace
             if function_name not in local_namespace:
                 raise ValueError(
                     f"Function '{function_name}' not found in script content"
                 )
 
-            # Get the function and execute it
+            # Get the function and execute it with updated global namespace
             func = local_namespace[function_name]
+            func.__globals__.update(global_namespace)
             result = func(**kwargs)
 
             return result
@@ -1257,6 +1270,42 @@ class Suites:
                 else:
                     logger.warning("No script content found for postprocessing step")
                     output = previous_step_result
+            elif step == "evaluation":
+                evaluation_config = config.get("evaluation", {})
+
+                # Execute script content if available
+                script_content = evaluation_config.get("script_content")
+
+                if script_content:
+                    try:
+                        # Get input parameters from config and pass all accumulated results
+                        input_params = {
+                            "results": results,  # Pass all step results
+                            **evaluation_config.get("input", {}),
+                        }
+
+                        # print(f"script_content: \n{script_content}", flush=True)
+                        # Execute the evaluation function
+                        output = self._execute_script_content(
+                            script_content=script_content,
+                            function_name="evaluate_data",
+                            **input_params,
+                        )
+                        logger.info(
+                            f"Evaluation step executed successfully for suite {suite_id}"
+                        )
+
+                    except ValueError as ve:
+                        logger.error(f"Validation error in evaluation script: {ve}")
+                        raise SuiteValidationError(
+                            f"Evaluation validation failed: {ve}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error executing evaluation script: {e}")
+                        raise SuiteValidationError(f"Evaluation execution failed: {e}")
+                else:
+                    logger.warning("No script content found for evaluation step")
+                    output = {}
             else:
                 output = None
             return output
