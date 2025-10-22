@@ -1,36 +1,83 @@
-def preprocess_data(data: dict, field: list[str]):
-    """
-    Preprocess data to enter evaluation
-    Args:
-        data (dict): Raw data to preprocess in "column" and "value" pair format
-        field (list[str]): List of nested field name to select the data from
-                          Supports array indexing with numeric strings (e.g., ["content", "choices", "0", "text"])
-    Returns:
-        dict: Preprocessed data in "field" and "value" pair format
-    """
-    current = data
+import re
 
-    # Traverse the nested field path
-    for f in field:
-        try:
-            # Check if current is a list and f is a numeric index
-            if isinstance(current, list) and f.isdigit():
-                index = int(f)
+
+def postprocess_data(data: dict, field: str):
+    """
+    Postprocess data after evaluation/invocation
+    Args:
+        data (dict): Raw data to postprocess from previous step (invocation result)
+        field (str): Field path to select the data from, supports dot notation and array indexing
+                    Examples: "message", "messages.[0].text", "data.results.[2].value"
+    Returns:
+        dict: Postprocessed data in "output" format
+    """
+    try:
+        current = data
+
+        # Split the field path by dots, but preserve array notation
+        # Convert "messages.[0].text" to ["messages", "[0]", "text"]
+        parts = []
+        current_part = ""
+
+        i = 0
+        while i < len(field):
+            if field[i] == ".":
+                if current_part:
+                    parts.append(current_part)
+                    current_part = ""
+            elif field[i] == "[":
+                if current_part:
+                    parts.append(current_part)
+                    current_part = ""
+                # Find the closing bracket
+                bracket_end = field.find("]", i)
+                if bracket_end == -1:
+                    raise ValueError(f"Unclosed bracket in field path: {field}")
+                parts.append(field[i : bracket_end + 1])
+                i = bracket_end
+                current_part = ""
+            else:
+                current_part += field[i]
+            i += 1
+
+        if current_part:
+            parts.append(current_part)
+
+        # Navigate through the data structure
+        for part in parts:
+            if not part:  # Skip empty parts
+                continue
+
+            # Handle array indexing [n]
+            if part.startswith("[") and part.endswith("]"):
+                index_str = part[1:-1]
+                if not index_str.isdigit():
+                    raise ValueError(f"Invalid array index: {part}")
+                index = int(index_str)
+
+                if not isinstance(current, list):
+                    raise ValueError(
+                        f"Expected list for array access, got {type(current).__name__}"
+                    )
                 if index >= len(current):
                     raise ValueError(
-                        f"Index {index} is out of range for array of length {len(current)}"
+                        f"Array index {index} out of range (length: {len(current)})"
                     )
-                current = current[index]
-            # Check if current is a dict and f is a key
-            elif isinstance(current, dict):
-                if f not in current:
-                    raise ValueError(f"Field '{f}' not found in data at current level")
-                current = current[f]
-            else:
-                raise ValueError(
-                    f"Cannot access field '{f}' on {type(current).__name__}"
-                )
-        except (KeyError, IndexError, TypeError) as e:
-            raise ValueError(f"Error accessing field '{f}': {str(e)}")
 
-    return {"output": current}
+                current = current[index]
+
+            # Handle object property access
+            else:
+                if not isinstance(current, dict):
+                    raise ValueError(
+                        f"Expected dict for property access, got {type(current).__name__}"
+                    )
+                if part not in current:
+                    raise ValueError(f"Property '{part}' not found in object")
+
+                current = current[part]
+
+        return {"output": current}
+
+    except Exception as e:
+        raise ValueError(f"Error accessing field '{field}': {str(e)}")

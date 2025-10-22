@@ -1094,11 +1094,24 @@ class Suites:
     ) -> Dict[str, Any]:
         """Execute script content dynamically and return the result"""
         try:
+            # Create a global namespace with access to commonly used modules
+            global_namespace = {
+                "__builtins__": __builtins__,
+                # Standard library modules
+                "json": json,
+                "re": re,
+                "uuid": uuid,
+                "logging": logging,
+                # Third-party modules that are commonly used
+                "requests": __import__("requests"),
+                # Add other commonly used modules as needed
+            }
+
             # Create a local namespace for script execution
             local_namespace = {}
 
             # Execute the script content to define the function
-            exec(script_content, {}, local_namespace)
+            exec(script_content, global_namespace, local_namespace)
 
             # Check if the function exists in the namespace
             if function_name not in local_namespace:
@@ -1134,7 +1147,7 @@ class Suites:
 
                 # Execute script content if available
                 script_content = preprocessing_config.get("script_content")
-                print(f"script_content: \n{script_content}", flush=True)
+                # print(f"script_content: \n{script_content}", flush=True)
 
                 if script_content:
                     try:
@@ -1166,6 +1179,83 @@ class Suites:
                         )
                 else:
                     logger.warning("No script content found for preprocessing step")
+                    output = previous_step_result
+            elif step == "invocation":
+                previous_step_result = results.get("preprocessing", {})
+                invocation_config = config.get("invocation", {})
+                # Execute script content if available
+                script_content = invocation_config.get("script_content")
+                # print(f"script_content: \n{script_content}", flush=True)
+
+                if script_content:
+                    try:
+                        # Get input parameters from config
+                        invocation_input_config = invocation_config.get("input", {})
+                        input_params = {
+                            "data": previous_step_result,
+                            "url": invocation_input_config.get("url"),
+                            "method": invocation_input_config.get("method", "POST"),
+                            "input_type": invocation_input_config.get("input_type", {}),
+                        }
+
+                        # Execute the invocation function
+                        output = self._execute_script_content(
+                            script_content=script_content,
+                            function_name="request_invocation",
+                            **input_params,
+                        )
+                        logger.info(
+                            f"Invocation step executed successfully for suite {suite_id}"
+                        )
+
+                    except ValueError as ve:
+                        logger.error(f"Validation error in invocation script: {ve}")
+                        raise SuiteValidationError(
+                            f"Invocation validation failed: {ve}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error executing invocation script: {e}")
+                        raise SuiteValidationError(f"Invocation execution failed: {e}")
+                else:
+                    logger.warning("No script content found for invocation step")
+                    output = previous_step_result
+            elif step == "postprocessing":
+                previous_step_result = results.get("invocation", {})
+                postprocessing_config = config.get("postprocessing", {})
+
+                # Execute script content if available
+                script_content = postprocessing_config.get("script_content")
+
+                if script_content:
+                    try:
+                        # Get input parameters from config
+                        input_params = {
+                            "data": previous_step_result.get("response", {}),
+                            **postprocessing_config.get("input", {}),
+                        }
+
+                        # Execute the postprocessing function
+                        output = self._execute_script_content(
+                            script_content=script_content,
+                            function_name="postprocess_data",
+                            **input_params,
+                        )
+                        logger.info(
+                            f"Postprocessing step executed successfully for suite {suite_id}"
+                        )
+
+                    except ValueError as ve:
+                        logger.error(f"Validation error in postprocessing script: {ve}")
+                        raise SuiteValidationError(
+                            f"Postprocessing validation failed: {ve}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error executing postprocessing script: {e}")
+                        raise SuiteValidationError(
+                            f"Postprocessing execution failed: {e}"
+                        )
+                else:
+                    logger.warning("No script content found for postprocessing step")
                     output = previous_step_result
             else:
                 output = None
