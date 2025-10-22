@@ -45,7 +45,7 @@ export function MentionInput({
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== valueToHtml(value)) {
       const currentSelection = window.getSelection()
-      const range = currentSelection?.getRangeAt(0)
+      const range = currentSelection && currentSelection.rangeCount > 0 ? currentSelection.getRangeAt(0) : null
       const startOffset = range?.startOffset || 0
 
       editorRef.current.innerHTML = valueToHtml(value)
