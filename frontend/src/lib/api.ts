@@ -204,6 +204,14 @@ class ApiClient {
     return response.data.data;
   }
 
+  // Test suite step
+  async testSuiteStep(suiteId: string, step: 'preprocessing' | 'invocation' | 'postprocessing' | 'evaluation'): Promise<any> {
+    const response: AxiosResponse<any> = await this.client.post(`/v1/suites/${suiteId}/test`, {
+      step
+    });
+    return response.data;
+  }
+
   // Health check
   async healthCheck(): Promise<{ status: string }> {
     const response: AxiosResponse<{ status: string }> = await this.client.get('/');

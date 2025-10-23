@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 import { Checkbox } from '@/components/ui/checkbox';
 import { MentionInput } from '@/components/ui/mention-input';
-import { Plus, Trash2, Send } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { InvocationInput, KeyValuePair, RequestBodyType, LegacyInvocationInput } from '@/lib/types';
 
 interface InvocationConfigProps {
@@ -324,110 +322,94 @@ export default function InvocationConfig({ config, onChange, onTest, availableCo
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>API Request Configuration</span>
-          {onTest && (
-            <Button onClick={onTest} size="sm">
-              <Send className="h-4 w-4 mr-1" />
-              Test
-            </Button>
-          )}
-        </CardTitle>
-        <CardDescription>
-          Configure your API request parameters and body
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* URL and Method */}
-        <div className="flex gap-2">
-          <div className="w-24">
-            <Select
-              value={legacyConfig.method}
-              onValueChange={(value) => updateConfig({ method: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GET">GET</SelectItem>
-                <SelectItem value="POST">POST</SelectItem>
-                <SelectItem value="PUT">PUT</SelectItem>
-                <SelectItem value="PATCH">PATCH</SelectItem>
-                <SelectItem value="DELETE">DELETE</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1">
-            <Input
-              value={legacyConfig.url}
-              onChange={(e) => updateConfig({ url: e.target.value })}
-              placeholder="Enter request URL"
-            />
-          </div>
+    <div className="space-y-6">
+      {/* URL and Method */}
+      <div className="flex gap-2">
+        <div className="w-24">
+          <Select
+            value={legacyConfig.method}
+            onValueChange={(value) => updateConfig({ method: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GET">GET</SelectItem>
+              <SelectItem value="POST">POST</SelectItem>
+              <SelectItem value="PUT">PUT</SelectItem>
+              <SelectItem value="PATCH">PATCH</SelectItem>
+              <SelectItem value="DELETE">DELETE</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+        <div className="flex-1">
+          <Input
+            value={legacyConfig.url}
+            onChange={(e) => updateConfig({ url: e.target.value })}
+            placeholder="Enter request URL"
+          />
+        </div>
+      </div>
 
-        {/* Section selector */}
+      {/* Section selector */}
+      <div className="space-y-2">
         <div className="space-y-2">
-          <div className="space-y-2">
-            <Label>Configuration Section</Label>
-            <Select
-              value={activeSection}
-              onValueChange={(value: string) => {
-                setActiveSection(value as 'params' | 'body');
-                setUserHasSelectedSection(true);
-              }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="params">
-                  Params {getEnabledCount(legacyConfig.params) > 0 && `(${getEnabledCount(legacyConfig.params)})`}
-                </SelectItem>
-                <SelectItem value="body">Body</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Conditional rendering based on selected section */}
-          {activeSection === 'params' && (
-            <div className="mt-4">
-              {renderKeyValueTable('params', 'Query Parameters')}
-            </div>
-          )}
-
-          {activeSection === 'body' && (
-            <div className="mt-4 space-y-4">
-              <div className="space-y-3">
-                <Label>Body Type</Label>
-                <Select
-                  value={legacyConfig.bodyType}
-                  onValueChange={handleBodyTypeChange}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="json">JSON</SelectItem>
-                    <SelectItem value="formData">Form Data</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {legacyConfig.bodyType === 'json' && (
-                renderKeyValueTable('json', 'JSON Body')
-              )}
-
-              {legacyConfig.bodyType === 'formData' && (
-                renderKeyValueTable('formData', 'Form Data')
-              )}
-            </div>
-          )}
+          <Label>Configuration Section</Label>
+          <Select
+            value={activeSection}
+            onValueChange={(value: string) => {
+              setActiveSection(value as 'params' | 'body');
+              setUserHasSelectedSection(true);
+            }}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="params">
+                Params {getEnabledCount(legacyConfig.params) > 0 && `(${getEnabledCount(legacyConfig.params)})`}
+              </SelectItem>
+              <SelectItem value="body">Body</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Conditional rendering based on selected section */}
+        {activeSection === 'params' && (
+          <div className="mt-4">
+            {renderKeyValueTable('params', 'Query Parameters')}
+          </div>
+        )}
+
+        {activeSection === 'body' && (
+          <div className="mt-4 space-y-4">
+            <div className="space-y-3">
+              <Label>Body Type</Label>
+              <Select
+                value={legacyConfig.bodyType}
+                onValueChange={handleBodyTypeChange}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="formData">Form Data</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {legacyConfig.bodyType === 'json' && (
+              renderKeyValueTable('json', 'JSON Body')
+            )}
+
+            {legacyConfig.bodyType === 'formData' && (
+              renderKeyValueTable('formData', 'Form Data')
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

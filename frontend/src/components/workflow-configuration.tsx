@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import {
   ReactFlow,
   Controls,
@@ -27,7 +29,9 @@ import {
   Send,
   BarChart3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CheckCircle,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { WorkflowConfig, Suite, InvocationInput } from '@/lib/types';
@@ -38,6 +42,7 @@ import { apiClient } from '@/lib/api';
 import InvocationConfig from './invocation-config';
 import { JsonPathSelector } from '@/components/ui/json-path-selector';
 import { MetricsSelector } from '@/components/ui/metrics-selector';
+import TestResultsDisplay from './test-results-display';
 
 interface WorkflowConfigurationProps {
   initialConfig?: WorkflowConfig | null;
@@ -55,6 +60,7 @@ interface WorkflowStepNodeData {
     script?: string;
     input?: Record<string, unknown>;
   };
+  isTested?: boolean;
 }
 
 const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
@@ -140,13 +146,16 @@ const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
         />
       )}
 
-      <Card className={`w-36 ${getStepColor(data.stepType)}`}>
+      <Card className={`w-36 ${getStepColor(data.stepType)} relative`}>
         <CardContent className="p-1.5">
           <div className="flex items-center gap-1.5">
             {getStepIcon(data.stepType)}
             <h3 className="text-xs font-medium capitalize">
               {data.stepType}
             </h3>
+            {data.isTested && (
+              <CheckCircle className="w-3 h-3 text-green-600 ml-auto" />
+            )}
           </div>
           {data.stepData && (
             <p className="text-xs text-muted-foreground mt-0.5 truncate leading-tight">
@@ -237,6 +246,22 @@ export default function WorkflowConfiguration({
   const [openAccordionValue, setOpenAccordionValue] = useState<string>("database");
   const [datasetColumns, setDatasetColumns] = useState<MultiSelectOption[]>([]);
   const [loadingColumns, setLoadingColumns] = useState(false);
+  
+  // Test state management
+  const [testResults, setTestResults] = useState<Record<string, any>>({});
+  const [testLoading, setTestLoading] = useState<Record<string, boolean>>({});
+  const [testErrors, setTestErrors] = useState<Record<string, string | null>>({});
+  
+  // Tab state management for diagram/test results
+  const [activeTab, setActiveTab] = useState<'diagram' | 'results'>('diagram');
+  const [currentTestResult, setCurrentTestResult] = useState<{
+    stepType: string;
+    result: any;
+    error?: string | null;
+  } | null>(null);
+  
+  // Tested steps tracking
+  const [testedSteps, setTestedSteps] = useState<Set<string>>(new Set());
 
   // Auto-collapse on smaller screens for responsive design
   useEffect(() => {
@@ -288,6 +313,7 @@ export default function WorkflowConfiguration({
           stepName: stepName,
           stepType: stepName,
           stepData: config?.workflow.steps[stepName as keyof typeof config.workflow.steps] || null,
+          isTested: testedSteps.has(stepName),
         },
       };
     });
@@ -332,7 +358,7 @@ export default function WorkflowConfiguration({
     ];
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [config]);
+  }, [config, testedSteps]);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
@@ -432,6 +458,54 @@ export default function WorkflowConfiguration({
     updateStepInput('preprocessing', 'input_columns', selectedColumns);
   };
 
+  // Test function for each step
+  const handleTestStep = async (step: 'preprocessing' | 'invocation' | 'postprocessing' | 'evaluation') => {
+    if (!suite?.id) {
+      toast.error('No suite selected for testing');
+      return;
+    }
+
+    setTestLoading(prev => ({ ...prev, [step]: true }));
+    setTestErrors(prev => ({ ...prev, [step]: null }));
+
+    try {
+      const result = await apiClient.testSuiteStep(suite.id, step);
+      setTestResults(prev => ({ ...prev, [step]: result }));
+      
+      // Update current test result for inline display
+      setCurrentTestResult({
+        stepType: step,
+        result: result,
+        error: null
+      });
+      
+      // Mark step as tested
+      setTestedSteps(prev => new Set([...prev, step]));
+      
+      // Switch to test results tab
+      setActiveTab("results");
+      
+      toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} test completed successfully`);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || error.message || 'Test failed';
+      setTestErrors(prev => ({ ...prev, [step]: errorMessage }));
+      
+      // Update current test result with error for inline display
+      setCurrentTestResult({
+        stepType: step,
+        result: null,
+        error: errorMessage
+      });
+      
+      // Switch to test results tab
+      setActiveTab("results");
+      
+      toast.error(`${step.charAt(0).toUpperCase() + step.slice(1)} test failed: ${errorMessage}`);
+    } finally {
+      setTestLoading(prev => ({ ...prev, [step]: false }));
+    }
+  };
+
   const getStepIcon = (stepName: string) => {
     switch (stepName) {
       case 'database':
@@ -479,45 +553,87 @@ export default function WorkflowConfiguration({
         </CardHeader>
         <CardContent className="p-0 flex-1">
           <div className="flex h-full">
-            {/* Left Section - Workflow Diagram (collapsible) */}
+            {/* Left Section - Tabbed Interface (collapsible) */}
             {!isFlowCollapsed && (
               <>
                 <div className="w-2/5 min-h-0 flex flex-col">
-                  <div className="flex-1 min-h-[500px]">
-                    <ReactFlow
-                      nodes={nodes}
-                      edges={edges}
-                      onNodesChange={onNodesChange}
-                      onEdgesChange={onEdgesChange}
-                      onNodeClick={(event, node) => {
-                        setOpenAccordionValue(node.id);
-                      }}
-                      nodeTypes={nodeTypes}
-                      defaultEdgeOptions={{
-                        type: 'straight',
-                        style: { strokeWidth: 2, stroke: '#e2e8f0' }
-                      }}
-                      fitView
-                      fitViewOptions={{
-                        padding: 0.05,
-                        maxZoom: 1.0,
-                        minZoom: 0.3
-                      }}
-                      defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
-                      attributionPosition="bottom-left"
-                      nodesDraggable={false}
-                      nodesConnectable={false}
-                      elementsSelectable={true}
-                      panOnDrag={false}
-                      zoomOnScroll={false}
-                      zoomOnPinch={false}
-                      zoomOnDoubleClick={false}
-                      style={{ width: '100%', height: '100%' }}
-                    >
-                      <Controls showInteractive={false} />
-                      <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-                    </ReactFlow>
-                  </div>
+                  <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'diagram' | 'results')} className="flex-1 flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="diagram">Workflow Diagram</TabsTrigger>
+                      <TabsTrigger value="results" disabled={!currentTestResult}>
+                        Test Results
+                        {currentTestResult && (
+                          <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
+                            {currentTestResult.stepType}
+                          </span>
+                        )}
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="diagram" className="flex-1 mt-2">
+                      <div className="h-full min-h-[500px]">
+                        <ReactFlow
+                          nodes={nodes}
+                          edges={edges}
+                          onNodesChange={onNodesChange}
+                          onEdgesChange={onEdgesChange}
+                          onNodeClick={(event, node) => {
+                            setOpenAccordionValue(node.id);
+                          }}
+                          nodeTypes={nodeTypes}
+                          defaultEdgeOptions={{
+                            type: 'straight',
+                            style: { strokeWidth: 2, stroke: '#e2e8f0' }
+                          }}
+                          fitView
+                          fitViewOptions={{
+                            padding: 0.05,
+                            maxZoom: 1.0,
+                            minZoom: 0.3
+                          }}
+                          defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
+                          attributionPosition="bottom-left"
+                          nodesDraggable={false}
+                          nodesConnectable={false}
+                          elementsSelectable={true}
+                          panOnDrag={false}
+                          zoomOnScroll={false}
+                          zoomOnPinch={false}
+                          zoomOnDoubleClick={false}
+                          style={{ width: '100%', height: '100%' }}
+                        >
+                          <Controls showInteractive={false} />
+                          <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+                        </ReactFlow>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="results" className="flex-1 mt-2">
+                      <div className="h-full min-h-[500px] p-4">
+                        {currentTestResult ? (
+                          <>
+                            <div className="mb-4">
+                              <h3 className="text-lg font-semibold">
+                                {currentTestResult.stepType.charAt(0).toUpperCase() + currentTestResult.stepType.slice(1)} Test Results
+                              </h3>
+                            </div>
+                            <div className="h-full overflow-y-auto">
+                              <TestResultsDisplay
+                                result={currentTestResult.result}
+                                isLoading={false}
+                                error={currentTestResult.error ?? null}
+                                step={currentTestResult.stepType}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <p>No test results available. Run a test to see results here.</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
 
                 {/* Vertical Separator */}
@@ -551,7 +667,7 @@ export default function WorkflowConfiguration({
                         <span className="font-medium">Database</span>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="py-4">
+                    <AccordionContent className="space-y-6 py-4">
                       {suite?.dataset_id ? (
                         <DatasetPreviewComponent datasetId={suite.dataset_id} limit={3} />
                       ) : (
@@ -569,48 +685,71 @@ export default function WorkflowConfiguration({
                       <div className="flex items-center gap-3">
                         {getStepIcon('preprocessing')}
                         <span className="font-medium">Preprocessing</span>
+                        {testedSteps.has('preprocessing') && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
-                      <div className="space-y-3">
-                        <Label>Input Columns</Label>
-                        <MultiSelect
-                          options={datasetColumns}
-                          selected={config.workflow.steps.preprocessing.input.input_columns as string[]}
-                          onChange={updateInputColumns}
-                          placeholder={loadingColumns ? "Loading columns..." : "Select input columns"}
-                          disabled={loadingColumns || datasetColumns.length === 0}
-                        />
-                        {datasetColumns.length === 0 && !loadingColumns && (
-                          <p className="text-sm text-muted-foreground">
-                            No dataset columns available. Please ensure a dataset is selected.
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-3">
-                        <Label htmlFor="groundtruth-column">Ground Truth Column</Label>
-                        <Select
-                          value={config.workflow.steps.preprocessing.input.groundtruth_column as string}
-                          onValueChange={(value) => updateStepInput('preprocessing', 'groundtruth_column', value)}
-                          disabled={loadingColumns || datasetColumns.length === 0}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={loadingColumns ? "Loading columns..." : "Select ground truth column"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {datasetColumns.map((column) => (
-                              <SelectItem key={column.value} value={column.value}>
-                                {column.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {datasetColumns.length === 0 && !loadingColumns && (
-                          <p className="text-sm text-muted-foreground">
-                            No dataset columns available. Please ensure a dataset is selected.
-                          </p>
-                        )}
-                      </div>
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base">Data Configuration</CardTitle>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTestStep('preprocessing')}
+                              disabled={testLoading.preprocessing}
+                            >
+                              {testLoading.preprocessing ? 'Testing...' : 'Test'}
+                            </Button>
+                          </div>
+                          <CardDescription>
+                            Configure input columns and ground truth for your dataset
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="space-y-3">
+                            <Label>Input Columns</Label>
+                            <MultiSelect
+                              options={datasetColumns}
+                              selected={config.workflow.steps.preprocessing.input.input_columns as string[]}
+                              onChange={updateInputColumns}
+                              placeholder={loadingColumns ? "Loading columns..." : "Select input columns"}
+                              disabled={loadingColumns || datasetColumns.length === 0}
+                            />
+                            {datasetColumns.length === 0 && !loadingColumns && (
+                              <p className="text-sm text-muted-foreground">
+                                No dataset columns available. Please ensure a dataset is selected.
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-3">
+                            <Label htmlFor="groundtruth-column">Ground Truth Column</Label>
+                            <Select
+                              value={config.workflow.steps.preprocessing.input.groundtruth_column as string}
+                              onValueChange={(value) => updateStepInput('preprocessing', 'groundtruth_column', value)}
+                              disabled={loadingColumns || datasetColumns.length === 0}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={loadingColumns ? "Loading columns..." : "Select ground truth column"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {datasetColumns.map((column) => (
+                                  <SelectItem key={column.value} value={column.value}>
+                                    {column.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {datasetColumns.length === 0 && !loadingColumns && (
+                              <p className="text-sm text-muted-foreground">
+                                No dataset columns available. Please ensure a dataset is selected.
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </AccordionContent>
                   </AccordionItem>
 
@@ -620,48 +759,81 @@ export default function WorkflowConfiguration({
                       <div className="flex items-center gap-3">
                         {getStepIcon('invocation')}
                         <span className="font-medium">Invocation</span>
+                        {testedSteps.has('invocation') && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="py-4">
-                      <InvocationConfig
-                        config={config.workflow.steps.invocation.input}
-                        availableColumns={config.workflow.steps.preprocessing.input.input_columns as string[]}
-                        onChange={(invocationConfig) => {
-                          setConfig(prev => ({
-                            ...prev,
-                            workflow: {
-                              ...prev.workflow,
-                              steps: {
-                                ...prev.workflow.steps,
-                                invocation: {
-                                  ...prev.workflow.steps.invocation,
-                                  input: invocationConfig
-                                }
-                              }
-                            }
-                          }));
-                          if (onConfigChange) {
-                            const newConfig = {
-                              ...config,
-                              workflow: {
-                                ...config.workflow,
-                                steps: {
-                                  ...config.workflow.steps,
-                                  invocation: {
-                                    ...config.workflow.steps.invocation,
-                                    input: invocationConfig
+                    <AccordionContent className="space-y-6 py-4">
+                      {!testedSteps.has('preprocessing') && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            Please test the preprocessing step first before configuring invocation.
+                          </p>
+                        </div>
+                      )}
+                      <div className={!testedSteps.has('preprocessing') ? 'blur-sm pointer-events-none' : ''}>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">API Request Configuration</CardTitle>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleTestStep('invocation')}
+                                disabled={testLoading.invocation}
+                              >
+                                {testLoading.invocation ? 'Testing...' : 'Test'}
+                              </Button>
+                            </div>
+                            <CardDescription>
+                              Configure your API request parameters and body
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <InvocationConfig
+                            config={config.workflow.steps.invocation.input}
+                            availableColumns={config.workflow.steps.preprocessing.input.input_columns as string[]}
+                            onChange={(invocationConfig) => {
+                              setConfig(prev => ({
+                                ...prev,
+                                workflow: {
+                                  ...prev.workflow,
+                                  steps: {
+                                    ...prev.workflow.steps,
+                                    invocation: {
+                                      ...prev.workflow.steps.invocation,
+                                      input: invocationConfig
+                                    }
                                   }
                                 }
+                              }));
+                              if (onConfigChange) {
+                                const newConfig = {
+                                  ...config,
+                                  workflow: {
+                                    ...config.workflow,
+                                    steps: {
+                                      ...config.workflow.steps,
+                                      invocation: {
+                                        ...config.workflow.steps.invocation,
+                                        input: invocationConfig
+                                      }
+                                    }
+                                  }
+                                };
+                                onConfigChange(newConfig);
                               }
-                            };
-                            onConfigChange(newConfig);
-                          }
-                        }}
-                        onTest={() => {
-                          toast.info('Testing API request...');
-                          // TODO: Implement actual API testing
-                        }}
-                      />
+                            }}
+                            onTest={() => {
+                              toast.info('Testing API request...');
+                              // TODO: Implement actual API testing
+                            }}
+                          />
+                          </CardContent>
+                        </Card>
+                      </div>
+
                     </AccordionContent>
                   </AccordionItem>
 
@@ -671,14 +843,47 @@ export default function WorkflowConfiguration({
                       <div className="flex items-center gap-3">
                         {getStepIcon('postprocessing')}
                         <span className="font-medium">Postprocessing</span>
+                        {testedSteps.has('postprocessing') && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
-                      <JsonPathSelector
-                        value={config.workflow.steps.postprocessing.input.field as string}
-                        onChange={(path) => updateStepInput('postprocessing', 'field', path)}
-                        placeholder="Select the field to extract from the API response"
-                      />
+                      {!testedSteps.has('invocation') && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            Please test the invocation step first before configuring postprocessing.
+                          </p>
+                        </div>
+                      )}
+                      <div className={!testedSteps.has('invocation') ? 'blur-sm pointer-events-none' : ''}>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">Response Processing Configuration</CardTitle>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleTestStep('postprocessing')}
+                                disabled={testLoading.postprocessing}
+                              >
+                                {testLoading.postprocessing ? 'Testing...' : 'Test'}
+                              </Button>
+                            </div>
+                            <CardDescription>
+                              Configure how to extract data from the API response
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <JsonPathSelector
+                              value={config.workflow.steps.postprocessing.input.field as string}
+                              onChange={(path) => updateStepInput('postprocessing', 'field', path)}
+                              placeholder="Select the field to extract from the API response"
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
+
                     </AccordionContent>
                   </AccordionItem>
 
@@ -688,13 +893,45 @@ export default function WorkflowConfiguration({
                       <div className="flex items-center gap-3">
                         {getStepIcon('evaluation')}
                         <span className="font-medium">Evaluation</span>
+                        {testedSteps.has('evaluation') && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 py-4">
-                      <MetricsSelector
-                        selectedMetrics={config.workflow.steps.evaluation.input.metrics as string[]}
-                        onMetricsChange={(metrics) => updateStepInput('evaluation', 'metrics', metrics)}
-                      />
+                      {!testedSteps.has('postprocessing') && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                          <p className="text-sm text-yellow-800">
+                            Please test the postprocessing step first before configuring evaluation.
+                          </p>
+                        </div>
+                      )}
+                      <div className={!testedSteps.has('postprocessing') ? 'blur-sm pointer-events-none' : ''}>
+                        <Card>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">Evaluation Configuration</CardTitle>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleTestStep('evaluation')}
+                                disabled={testLoading.evaluation}
+                              >
+                                {testLoading.evaluation ? 'Testing...' : 'Test'}
+                              </Button>
+                            </div>
+                            <CardDescription>
+                              Configure metrics to evaluate the workflow performance
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <MetricsSelector
+                              selectedMetrics={config.workflow.steps.evaluation.input.metrics as string[]}
+                              onMetricsChange={(metrics) => updateStepInput('evaluation', 'metrics', metrics)}
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -703,6 +940,8 @@ export default function WorkflowConfiguration({
           </div>
         </CardContent>
       </Card>
+
+
     </div>
   );
 }
