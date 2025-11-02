@@ -11,6 +11,8 @@ import {
   SuiteStats,
   CreateSuiteRequest,
   UpdateSuiteRequest,
+  Evaluation,
+  CreateEvaluationRequest,
   PaginationParams,
   PaginatedResponse,
   ApiError,
@@ -210,6 +212,12 @@ class ApiClient {
       step
     });
     return response.data;
+  }
+
+  // Evaluation CRUD operations
+  async createEvaluation(data: CreateEvaluationRequest): Promise<Evaluation> {
+    const response: AxiosResponse<{ message: string, data: Evaluation }> = await this.client.post('/v1/evals', data);
+    return response.data.data;
   }
 
   // Health check

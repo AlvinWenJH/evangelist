@@ -252,12 +252,13 @@ class Evals:
         page_size: int = 10,
         keyword: str = None,
         status: EvalStatus = None,
+        suite_id: UUID = None,
     ) -> Dict[str, Any]:
-        """Get all evaluations with pagination, optional keyword search, and status filter"""
+        """Get all evaluations with pagination, optional keyword search, status filter, and suite filter"""
         try:
             page, page_size = self._validate_pagination(page, page_size)
             result = self.repo.get_all(
-                page=page, page_size=page_size, keyword=keyword, status=status
+                page=page, page_size=page_size, keyword=keyword, status=status, suite_id=suite_id
             )
 
             evaluations_data = [eval.to_dict() for eval in result["evaluations"]]

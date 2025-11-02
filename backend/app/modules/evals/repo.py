@@ -58,8 +58,9 @@ class EvalsRepo:
         page_size: int = 10,
         keyword: str = None,
         status: EvalStatus = None,
+        suite_id: UUID = None,
     ) -> Dict[str, Any]:
-        """Get all evaluations with pagination and optional keyword search and status filter (excluding deleted evaluations)"""
+        """Get all evaluations with pagination and optional keyword search, status filter, and suite filter (excluding deleted evaluations)"""
         query = self.session.query(EvalsModel)
 
         # Filter out deleted evaluations
@@ -76,6 +77,10 @@ class EvalsRepo:
         # Apply status filter if provided
         if status:
             query = query.filter(EvalsModel.status == status)
+
+        # Apply suite filter if provided
+        if suite_id:
+            query = query.filter(EvalsModel.suite_id == suite_id)
 
         # Get total count for pagination
         total_count = query.count()

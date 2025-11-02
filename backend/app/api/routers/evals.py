@@ -55,13 +55,14 @@ def get_evals(
     limit: int = Query(10, description="Number of items per page"),
     keyword: str = Query(None, description="Search keyword"),
     status: Optional[EvalStatus] = Query(None, description="Filter by status"),
+    suite_id: Optional[UUID] = Query(None, description="Filter by suite ID"),
     db: Session = Depends(get_db),
 ):
-    """Get all evaluations with pagination, optional keyword search, and status filter"""
+    """Get all evaluations with pagination, optional keyword search, status filter, and suite filter"""
     try:
         evals_service = Evals(db)
         result = evals_service.get_evals(
-            page=page, page_size=limit, keyword=keyword, status=status
+            page=page, page_size=limit, keyword=keyword, status=status, suite_id=suite_id
         )
 
         if not result["success"]:

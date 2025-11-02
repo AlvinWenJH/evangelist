@@ -29,7 +29,7 @@ import {
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
-import { Suite, Dataset, SuiteConfig } from '@/lib/types';
+import { Suite, Dataset, SuiteConfig, CreateEvaluationRequest } from '@/lib/types';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/date-utils';
 import WorkflowVisualization from '@/components/workflow-visualization';
@@ -45,6 +45,16 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function SuiteDetailPage() {
   const params = useParams();
@@ -56,6 +66,11 @@ export default function SuiteDetailPage() {
   const [suiteConfig, setSuiteConfig] = useState<SuiteConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Create evaluation dialog state
+  const [isCreateEvalDialogOpen, setIsCreateEvalDialogOpen] = useState(false);
+  const [evalName, setEvalName] = useState('');
+  const [isCreatingEval, setIsCreatingEval] = useState(false);
 
 
   const fetchSuiteDetails = useCallback(async () => {
@@ -101,6 +116,67 @@ export default function SuiteDetailPage() {
       fetchSuiteDetails();
     }
   }, [suiteId, fetchSuiteDetails]);
+
+  const handleCreateEvalClick = () => {
+    console.log('Create evaluation clicked for suite:', suite?.name);
+    if (!suite) {
+      toast.error('Suite data not available');
+      return;
+    }
+    
+    if (!suite.dataset_id) {
+      toast.error('This suite does not have an associated dataset');
+      return;
+    }
+    
+    setIsCreateEvalDialogOpen(true);
+  };
+
+  const handleCreateEvaluation = async () => {
+    if (!evalName.trim()) {
+      toast.error('Please enter an evaluation name');
+      return;
+    }
+
+    if (!suite?.dataset_id) {
+      toast.error('Suite does not have an associated dataset');
+      return;
+    }
+
+    try {
+      setIsCreatingEval(true);
+      
+      const evaluationData: CreateEvaluationRequest = {
+        name: evalName.trim(),
+        description: `Evaluation run for suite "${suite.name}"`,
+        suite_id: suite.id,
+        dataset_id: suite.dataset_id,
+        eval_metadata: {
+          created_from_suite: suite.name,
+          suite_status: suite.status
+        }
+      };
+
+      console.log('Creating evaluation with data:', evaluationData);
+      
+      const response = await apiClient.createEvaluation(evaluationData);
+      
+      toast.success(`Evaluation "${evalName}" created successfully!`);
+      
+      // Reset form and close dialog
+      setEvalName('');
+      setIsCreateEvalDialogOpen(false);
+      
+      // Navigate to the new evaluation
+      router.push(`/evaluations/${response.id}`);
+      
+    } catch (error) {
+      console.error('Failed to create evaluation:', error);
+      toast.error('Failed to create evaluation. Please try again.');
+    } finally {
+      setIsCreatingEval(false);
+    }
+  };
 
 
 
@@ -224,11 +300,11 @@ export default function SuiteDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full">
+            <Button className="w-full" onClick={handleCreateEvalClick}>
               <Play className="mr-2 h-4 w-4" />
               Create Evaluation
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => router.push(`/evaluations?suite_id=${suite?.id}`)}>
               <List className="mr-2 h-4 w-4" />
               View Evaluation
             </Button>
@@ -415,6 +491,73 @@ export default function SuiteDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Evaluation Dialog */}
+      <Dialog open={isCreateEvalDialogOpen} onOpenChange={setIsCreateEvalDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Evaluation</DialogTitle>
+            <DialogDescription>
+              Create a new evaluation for the suite "{suite?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="eval-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="eval-name"
+                value={evalName}
+                onChange={(e) => setEvalName(e.target.value)}
+                placeholder="Enter evaluation name"
+                className="col-span-3"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isCreatingEval) {
+                    handleCreateEvaluation();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right text-sm text-muted-foreground">
+                Suite
+              </Label>
+              <div className="col-span-3 text-sm">
+                {suite?.name}
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right text-sm text-muted-foreground">
+                Dataset
+              </Label>
+              <div className="col-span-3 text-sm">
+                {dataset?.name || 'Loading...'}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsCreateEvalDialogOpen(false);
+                setEvalName('');
+              }}
+              disabled={isCreatingEval}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateEvaluation}
+              disabled={isCreatingEval || !evalName.trim()}
+            >
+              {isCreatingEval ? 'Creating...' : 'Create Evaluation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

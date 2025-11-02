@@ -39,7 +39,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
-import { Suite, CreateSuiteRequest, Dataset, SuiteStats, SuiteStatus } from '@/lib/types';
+import { Suite, CreateSuiteRequest, Dataset, SuiteStats, SuiteStatus, CreateEvaluationRequest } from '@/lib/types';
 import { toast } from 'sonner';
 import { formatDateShort } from '@/lib/date-utils';
 
@@ -195,17 +195,54 @@ export default function SuitesPage() {
   }, [fetchSuites, fetchStats]);
 
   const handleCreateEvalClick = useCallback((suite: Suite) => {
+    console.log('Create eval clicked for suite:', suite);
+    alert(`Create evaluation clicked for suite: ${suite.name}`);
     setSelectedSuiteForEval(suite);
     setIsCreateEvalDialogOpen(true);
   }, []);
 
-  const handleCreateEval = useCallback(() => {
-    // TODO: Implement evaluation creation logic
-    toast.success('Evaluation created successfully');
-    setIsCreateEvalDialogOpen(false);
-    setSelectedSuiteForEval(null);
-    fetchSuites(); // Refresh to update eval counts
-  }, [fetchSuites]);
+  const handleCreateEval = useCallback(async () => {
+    console.log('handleCreateEval called with selectedSuiteForEval:', selectedSuiteForEval);
+
+    if (!selectedSuiteForEval) {
+      toast.error('No suite selected for evaluation');
+      return;
+    }
+
+    if (!selectedSuiteForEval.dataset_id) {
+      toast.error('Suite must have a dataset to create evaluation');
+      console.log('Missing dataset_id for suite:', selectedSuiteForEval);
+      return;
+    }
+
+    try {
+      const evaluationData: CreateEvaluationRequest = {
+        name: `Evaluation for ${selectedSuiteForEval.name}`,
+        description: `Evaluation run for suite "${selectedSuiteForEval.name}"`,
+        suite_id: selectedSuiteForEval.id,
+        dataset_id: selectedSuiteForEval.dataset_id,
+        eval_metadata: {
+          created_from_suite: selectedSuiteForEval.name,
+          suite_status: selectedSuiteForEval.status
+        }
+      };
+
+      console.log('Creating evaluation with data:', evaluationData);
+      const newEvaluation = await apiClient.createEvaluation(evaluationData);
+
+      toast.success('Evaluation created successfully');
+      setIsCreateEvalDialogOpen(false);
+      setSelectedSuiteForEval(null);
+
+      // Navigate to the new evaluation page
+      router.push(`/evaluations/${newEvaluation.id}`);
+
+      fetchSuites(); // Refresh to update eval counts
+    } catch (error) {
+      toast.error('Failed to create evaluation');
+      console.error('Create evaluation error:', error);
+    }
+  }, [selectedSuiteForEval, fetchSuites, router]);
 
   const formatNumber = (num: number | string) => {
     const numValue = typeof num === 'string' ? parseInt(num) : num;

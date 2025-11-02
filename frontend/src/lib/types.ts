@@ -219,6 +219,45 @@ export interface UpdateWorkflowConfigRequest {
   configuration: WorkflowConfig;
 }
 
+// Evaluation Types
+export interface Evaluation {
+  id: string;
+  name: string;
+  description: string;
+  suite_id: string;
+  dataset_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  started_at: string | null;
+  completed_at: string | null;
+  eval_metadata: Record<string, any>;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateEvaluationRequest {
+  name: string;
+  description: string;
+  suite_id: string;
+  dataset_id: string;
+  eval_metadata?: Record<string, any>;
+}
+
+export interface EvaluationStats {
+  total_evaluations: number;
+  evaluations_by_status: {
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+  };
+  total_requests: number;
+  avg_success_rate: number;
+}
+
 // API Error Types
 export interface ApiError {
   detail: string;
