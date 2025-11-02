@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Play } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { Suite, SuiteConfig, WorkflowConfig } from '@/lib/types';
 import { toast } from 'sonner';
-import WorkflowConfiguration from '@/components/workflow-configuration';
+import WorkflowConfiguration, { WorkflowConfigurationRef } from '@/components/workflow-configuration';
 
 export default function EditConfigurationPage() {
   const params = useParams();
@@ -20,6 +20,9 @@ export default function EditConfigurationPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<WorkflowConfig | null>(null);
+  
+  // Ref to access WorkflowConfiguration methods
+  const workflowConfigRef = useRef<WorkflowConfigurationRef>(null);
 
   const fetchSuiteData = useCallback(async () => {
     try {
@@ -81,16 +84,17 @@ export default function EditConfigurationPage() {
       return;
     }
 
+    if (!workflowConfigRef.current) {
+      toast.error('Workflow configuration not ready');
+      return;
+    }
+
     setIsTesting(true);
     try {
-      // TODO: Implement actual workflow testing API call
-      // For now, simulate a test with a delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      toast.success('Workflow test completed successfully');
+      await workflowConfigRef.current.testAllSteps();
     } catch (error: unknown) {
       console.error('Error testing workflow:', error);
-      toast.error('Failed to test workflow configuration');
+      // Error handling is already done in the testAllSteps function
     } finally {
       setIsTesting(false);
     }
@@ -164,6 +168,7 @@ export default function EditConfigurationPage() {
 
       {/* Configuration Form */}
       <WorkflowConfiguration
+        ref={workflowConfigRef}
         initialConfig={suiteConfig?.workflow_config || null}
         suite={suite}
         onConfigChange={setCurrentConfig}

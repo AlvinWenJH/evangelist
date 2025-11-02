@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { WorkflowConfig, Suite, InvocationInput } from '@/lib/types';
@@ -50,7 +49,11 @@ interface WorkflowConfigurationProps {
   onConfigChange?: (config: WorkflowConfig) => void;
 }
 
-// Custom node component for vertical workflow steps (without hover cards)
+export interface WorkflowConfigurationRef {
+  testAllSteps: () => Promise<void>;
+}
+
+// Custom node component for vertical workflow steps
 interface WorkflowStepNodeData {
   label: string;
   stepName: string;
@@ -102,15 +105,12 @@ const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
   if (data.stepType === 'database') {
     return (
       <div>
-        {/* No input handle for database node (it's the first node) */}
-
         <Card className={`w-16 h-16 ${getStepColor(data.stepType)}`}>
           <CardContent className="p-0 h-full flex items-center justify-center">
             {getStepIcon(data.stepType)}
           </CardContent>
         </Card>
 
-        {/* Output handle (source) - always present for database */}
         <Handle
           type="source"
           position={Position.Bottom}
@@ -130,7 +130,6 @@ const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
   // Default rendering for other nodes
   return (
     <div>
-      {/* Input handle (target) - hidden for first node */}
       {data.stepType !== 'database' && (
         <Handle
           type="target"
@@ -165,7 +164,6 @@ const VerticalWorkflowStepNode = ({ data }: { data: WorkflowStepNodeData }) => {
         </CardContent>
       </Card>
 
-      {/* Output handle (source) - hidden for last node */}
       {data.stepType !== 'evaluation' && (
         <Handle
           type="source"
@@ -188,11 +186,11 @@ const nodeTypes = {
   verticalWorkflowStep: VerticalWorkflowStepNode,
 };
 
-export default function WorkflowConfiguration({
+const WorkflowConfiguration = forwardRef<WorkflowConfigurationRef, WorkflowConfigurationProps>(({
   initialConfig,
   suite,
   onConfigChange
-}: WorkflowConfigurationProps) {
+}, ref) => {
   const [config, setConfig] = useState<WorkflowConfig>(() => {
     if (initialConfig) {
       return initialConfig;
@@ -266,42 +264,60 @@ export default function WorkflowConfiguration({
   // Auto-collapse on smaller screens for responsive design
   useEffect(() => {
     const handleResize = () => {
-      const shouldCollapse = window.innerWidth < 1024; // Collapse below lg breakpoint
+      const shouldCollapse = window.innerWidth < 1024;
       setIsFlowCollapsed(shouldCollapse);
     };
 
-    // Check initial screen size
     handleResize();
-
-    // Add event listener
     window.addEventListener('resize', handleResize);
-
-    // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Fetch dataset columns for multiselect
+  const fetchDatasetColumns = useCallback(async () => {
+    if (!suite?.dataset_id) return;
+
+    setLoadingColumns(true);
+    try {
+      const preview = await apiClient.getDatasetPreview(suite.dataset_id, 5);
+      if (preview.data?.columns) {
+        const columnOptions: MultiSelectOption[] = preview.data.columns.map((column: string) => ({
+          value: column,
+          label: column
+        }));
+        setDatasetColumns(columnOptions);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dataset columns:', error);
+      toast.error('Failed to load dataset columns');
+    } finally {
+      setLoadingColumns(false);
+    }
+  }, [suite?.dataset_id]);
+
+  // Fetch columns when component mounts or dataset changes
+  useEffect(() => {
+    fetchDatasetColumns();
+  }, [fetchDatasetColumns]);
 
   // Create vertical nodes and edges for the workflow steps
   const { initialNodes, initialEdges } = useMemo(() => {
     const stepNames = ['database', 'preprocessing', 'invocation', 'postprocessing', 'evaluation'];
 
-    // Calculate positions with different spacing
-    let cumulativeY = 20; // Starting position
-    const firstGap = 35; // Smaller gap after database node
-    const regularGap = 80; // Regular gap between other nodes
-    const databaseHeight = 64; // w-16 h-16 = 64px
-    const regularNodeHeight = 48; // Estimated height based on content and padding
+    let cumulativeY = 20;
+    const firstGap = 35;
+    const regularGap = 80;
+    const databaseHeight = 64;
+    const regularNodeHeight = 48;
 
     const nodes: Node[] = stepNames.map((stepName) => {
-      // Center-align the database node since it's smaller (64px vs 144px width)
-      const xPosition = stepName === 'database' ? 50 : 10; // (144-64)/2 + 10 = 50
-
+      const xPosition = stepName === 'database' ? 50 : 10;
       const yPosition = cumulativeY;
 
-      // Update cumulative Y for next node with different gaps
       if (stepName === 'database') {
-        cumulativeY += databaseHeight + firstGap; // Use smaller gap after database
+        cumulativeY += databaseHeight + firstGap;
       } else {
-        cumulativeY += regularNodeHeight + regularGap; // Use regular gap for other nodes
+        cumulativeY += regularNodeHeight + regularGap;
       }
 
       return {
@@ -360,8 +376,22 @@ export default function WorkflowConfiguration({
     return { initialNodes: nodes, initialEdges: edges };
   }, [config, testedSteps]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update nodes when config or tested steps change
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          stepData: config?.workflow.steps[node.id as keyof typeof config.workflow.steps] || null,
+          isTested: testedSteps.has(node.id),
+        },
+      }))
+    );
+  }, [config, testedSteps, setNodes]);
 
   // Notify parent component when config changes
   useEffect(() => {
@@ -370,13 +400,10 @@ export default function WorkflowConfiguration({
     }
   }, [config, onConfigChange]);
 
-
-
-  const updateStepInput = (stepName: string, inputField: string, value: unknown) => {
+  const updateStepInput = useCallback((stepName: string, inputField: string, value: unknown) => {
     setConfig(prev => {
       const currentStep = prev.workflow.steps[stepName as keyof typeof prev.workflow.steps];
       
-      // Handle invocation step separately due to different type structure
       if (stepName === 'invocation') {
         const invocationStep = currentStep as typeof prev.workflow.steps.invocation;
         const currentInput = invocationStep?.input || {} as InvocationInput;
@@ -400,7 +427,6 @@ export default function WorkflowConfiguration({
         };
       }
       
-      // Handle other steps (preprocessing, postprocessing, evaluation)
       const regularStep = currentStep as Exclude<typeof currentStep, typeof prev.workflow.steps.invocation>;
       const currentInput = regularStep?.input || {};
 
@@ -422,44 +448,14 @@ export default function WorkflowConfiguration({
         }
       };
     });
-  };
+  }, []);
 
-
-
-  // Fetch dataset columns for multiselect
-  const fetchDatasetColumns = useCallback(async () => {
-    if (!suite?.dataset_id) return;
-
-    setLoadingColumns(true);
-    try {
-      const preview = await apiClient.getDatasetPreview(suite.dataset_id, 5);
-      if (preview.data?.columns) {
-        const columnOptions: MultiSelectOption[] = preview.data.columns.map((column: string) => ({
-          value: column,
-          label: column
-        }));
-        setDatasetColumns(columnOptions);
-      }
-    } catch (error) {
-      console.error('Failed to fetch dataset columns:', error);
-      toast.error('Failed to load dataset columns');
-    } finally {
-      setLoadingColumns(false);
-    }
-  }, [suite?.dataset_id]);
-
-  // Fetch columns when component mounts or dataset changes
-  useEffect(() => {
-    fetchDatasetColumns();
-  }, [fetchDatasetColumns]);
-
-  // Update input columns handling for multiselect
-  const updateInputColumns = (selectedColumns: string[]) => {
+  const updateInputColumns = useCallback((selectedColumns: string[]) => {
     updateStepInput('preprocessing', 'input_columns', selectedColumns);
-  };
+  }, [updateStepInput]);
 
   // Test function for each step
-  const handleTestStep = async (step: 'preprocessing' | 'invocation' | 'postprocessing' | 'evaluation') => {
+  const handleTestStep = useCallback(async (step: 'preprocessing' | 'invocation' | 'postprocessing' | 'evaluation') => {
     if (!suite?.id) {
       toast.error('No suite selected for testing');
       return;
@@ -472,17 +468,13 @@ export default function WorkflowConfiguration({
       const result = await apiClient.testSuiteStep(suite.id, step);
       setTestResults(prev => ({ ...prev, [step]: result }));
       
-      // Update current test result for inline display
       setCurrentTestResult({
         stepType: step,
         result: result,
         error: null
       });
       
-      // Mark step as tested
       setTestedSteps(prev => new Set([...prev, step]));
-      
-      // Switch to test results tab
       setActiveTab("results");
       
       toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} test completed successfully`);
@@ -490,21 +482,52 @@ export default function WorkflowConfiguration({
       const errorMessage = error.response?.data?.detail || error.message || 'Test failed';
       setTestErrors(prev => ({ ...prev, [step]: errorMessage }));
       
-      // Update current test result with error for inline display
       setCurrentTestResult({
         stepType: step,
         result: null,
         error: errorMessage
       });
       
-      // Switch to test results tab
       setActiveTab("results");
-      
       toast.error(`${step.charAt(0).toUpperCase() + step.slice(1)} test failed: ${errorMessage}`);
     } finally {
       setTestLoading(prev => ({ ...prev, [step]: false }));
     }
-  };
+  }, [suite?.id]);
+
+  // Test all steps function
+  const testAllSteps = useCallback(async () => {
+    if (!suite?.id) {
+      toast.error('No suite selected for testing');
+      return;
+    }
+
+    const steps: ('preprocessing' | 'invocation' | 'postprocessing' | 'evaluation')[] = [
+      'preprocessing', 
+      'invocation', 
+      'postprocessing', 
+      'evaluation'
+    ];
+
+    toast.info('Starting workflow test...');
+
+    for (const step of steps) {
+      toast.info(`Testing ${step} step...`);
+      
+      try {
+        await handleTestStep(step);
+      } catch (error: any) {
+        throw error;
+      }
+    }
+
+    toast.success('All workflow tests completed successfully');
+  }, [suite?.id, handleTestStep]);
+
+  // Expose testAllSteps to parent component
+  useImperativeHandle(ref, () => ({
+    testAllSteps
+  }), [testAllSteps]);
 
   const getStepIcon = (stepName: string) => {
     switch (stepName) {
@@ -523,15 +546,10 @@ export default function WorkflowConfiguration({
     }
   };
 
-
-
   return (
     <div className="h-screen flex flex-col">
-      {/* Single Card with Complete Workflow Configuration */}
       <Card className="flex-1 flex flex-col">
         <CardHeader className="space-y-4">
-
-          {/* Version and Last Updated */}
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BarChart3 className="w-4 h-4" />
@@ -548,12 +566,10 @@ export default function WorkflowConfiguration({
                 </p>
               )}
             </div>
-
           </div>
         </CardHeader>
         <CardContent className="p-0 flex-1">
           <div className="flex h-full">
-            {/* Left Section - Tabbed Interface (collapsible) */}
             {!isFlowCollapsed && (
               <>
                 <div className="w-2/5 min-h-0 flex flex-col">
@@ -635,13 +651,10 @@ export default function WorkflowConfiguration({
                     </TabsContent>
                   </Tabs>
                 </div>
-
-                {/* Vertical Separator */}
                 <Separator orientation="vertical" className="h-full" />
               </>
             )}
 
-            {/* Toggle Button */}
             <div className="flex items-start pt-4">
               <Button
                 variant="ghost"
@@ -653,11 +666,8 @@ export default function WorkflowConfiguration({
               </Button>
             </div>
 
-            {/* Right Section - Configuration Form (dynamic width) */}
             <div className={`${isFlowCollapsed ? 'w-full' : 'w-3/5'} p-6 overflow-y-auto space-y-6 min-h-0 flex flex-col`}>
-              {/* Workflow Steps Configuration */}
               <div className="flex-1 min-h-0">
-
                 <Accordion type="single" collapsible value={openAccordionValue} onValueChange={setOpenAccordionValue} className="space-y-4">
                   {/* Database Step */}
                   <AccordionItem value="database">
@@ -792,48 +802,30 @@ export default function WorkflowConfiguration({
                           </CardHeader>
                           <CardContent>
                             <InvocationConfig
-                            config={config.workflow.steps.invocation.input}
-                            availableColumns={config.workflow.steps.preprocessing.input.input_columns as string[]}
-                            onChange={(invocationConfig) => {
-                              setConfig(prev => ({
-                                ...prev,
-                                workflow: {
-                                  ...prev.workflow,
-                                  steps: {
-                                    ...prev.workflow.steps,
-                                    invocation: {
-                                      ...prev.workflow.steps.invocation,
-                                      input: invocationConfig
-                                    }
-                                  }
-                                }
-                              }));
-                              if (onConfigChange) {
-                                const newConfig = {
-                                  ...config,
+                              config={config.workflow.steps.invocation.input}
+                              availableColumns={config.workflow.steps.preprocessing.input.input_columns as string[]}
+                              onChange={(invocationConfig) => {
+                                setConfig(prev => ({
+                                  ...prev,
                                   workflow: {
-                                    ...config.workflow,
+                                    ...prev.workflow,
                                     steps: {
-                                      ...config.workflow.steps,
+                                      ...prev.workflow.steps,
                                       invocation: {
-                                        ...config.workflow.steps.invocation,
+                                        ...prev.workflow.steps.invocation,
                                         input: invocationConfig
                                       }
                                     }
                                   }
-                                };
-                                onConfigChange(newConfig);
-                              }
-                            }}
-                            onTest={() => {
-                              toast.info('Testing API request...');
-                              // TODO: Implement actual API testing
-                            }}
-                          />
+                                }));
+                              }}
+                              onTest={() => {
+                                toast.info('Testing API request...');
+                              }}
+                            />
                           </CardContent>
                         </Card>
                       </div>
-
                     </AccordionContent>
                   </AccordionItem>
 
@@ -879,11 +871,11 @@ export default function WorkflowConfiguration({
                               value={config.workflow.steps.postprocessing.input.field as string}
                               onChange={(path) => updateStepInput('postprocessing', 'field', path)}
                               placeholder="Select the field to extract from the API response"
+                              exampleJson={testResults.invocation?.results?.invocation?.response ? JSON.stringify(testResults.invocation.results.invocation.response) : undefined}
                             />
                           </CardContent>
                         </Card>
                       </div>
-
                     </AccordionContent>
                   </AccordionItem>
 
@@ -940,8 +932,10 @@ export default function WorkflowConfiguration({
           </div>
         </CardContent>
       </Card>
-
-
     </div>
   );
-}
+});
+
+WorkflowConfiguration.displayName = 'WorkflowConfiguration';
+
+export default WorkflowConfiguration;

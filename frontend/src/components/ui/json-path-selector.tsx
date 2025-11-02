@@ -38,20 +38,8 @@ interface JsonNode {
 }
 
 const DEFAULT_EXAMPLE_JSON = {
-  "status": "success",
-  "message": "Items found",
-  "result": [
-    {
-      "id": 1,
-      "text": "First item",
-      "active": true
-    },
-    {
-      "id": 2,
-      "text": "Second item",
-      "active": false
-    }
-  ]
+  "message": "Found",
+  "data": {}
 };
 
 const getTypeIcon = (type: string) => {
